@@ -38,14 +38,15 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
-; Wygląd glassmorphism jak w Kopaczu i Auto Clickerze: nasycone plamy (fiolet, iris, róż,
-; błękit) pod wszystkimi stronami, przykryte jasną mgłą, żeby tekst i kontrolki były czytelne
-; (Inno nie rozmywa tła na żywo). Na powitaniu i zakończeniu ikona na szklanej karcie
-; z prawdziwym rozmyciem, wtopionej w obraz; mała ikona w rogu pozostałych stron.
+; Wygląd glassmorphism jak w Kopaczu i Auto Clickerze (makieta na kanwie): nasycone plamy
+; (fiolet, iris, róż, błękit) i szklane karty pod treścią. Inno nie rozmywa tła na żywo, więc
+; karty są wtopione w obrazy tła, zmierzone pod układ stron (obszar okna 596×432, obrazy 2×):
+; wizard-back-inner.png — szklany nagłówek i karta treści; wizard-back-welcome.png — karta pod
+; tekstem powitania i zakończenia (podmieniana w CurPageChanged). Po lewej na tych stronach
+; przezroczysty obraz z szklaną kartą ikony.
 WizardStyle=modern windows11 hidebevels
 WizardBackColor=#F3F2FC
-WizardBackImageFile=wizard-back.png
-WizardBackImageOpacity=150
+WizardBackImageFile=wizard-back-inner.png
 ; Ten sam tekst co ..\LICENSE (GPL-3.0), tylko sformatowany do RTF: nagłówki i akapity
 ; bez ręcznego łamania linii, czytelne w oknie instalatora.
 LicenseFile=license.rtf
@@ -82,6 +83,9 @@ Name: "desktopicons"; Description: "Utwórz skróty na pulpicie"; GroupDescripti
 
 [Files]
 Source: "installer.ico"; DestDir: "{app}"; DestName: "MinecraftHelper.ico"; Flags: ignoreversion
+; Tła stron podmieniane w [Code] — tylko na czas instalatora, nie trafiają do {app}.
+Source: "wizard-back-welcome.png"; Flags: dontcopy noencryption
+Source: "wizard-back-inner.png"; Flags: dontcopy noencryption
 Source: "{#AutoClickerPublishDir}\*"; DestDir: "{app}\AutoClicker"; Components: autoclicker; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MinerPublishDir}\*"; DestDir: "{app}\Kopacz"; Components: miner; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -106,6 +110,35 @@ Filename: "{app}\Kopacz\{#MinerExeName}"; Description: "Uruchom Kopacza"; Compon
 [Code]
 const
   LegacyUninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{D9C22E2B-2FB1-47F4-8C4B-5AA80A3A3B95}_is1';
+
+var
+  WelcomeBackImage: TBitmapImage;
+  InnerBackImage: TBitmapImage;
+
+function LoadBackImage(const FileName: String): TBitmapImage;
+begin
+  ExtractTemporaryFile(FileName);
+  Result := TBitmapImage.Create(WizardForm);
+  Result.Visible := False;
+  Result.PngImage.LoadFromFile(ExpandConstant('{tmp}\' + FileName));
+end;
+
+procedure InitializeWizard();
+begin
+  WelcomeBackImage := LoadBackImage('wizard-back-welcome.png');
+  InnerBackImage := LoadBackImage('wizard-back-inner.png');
+end;
+
+{ Powitanie i zakończenie mają kartę pod tekstem po prawej, pozostałe strony — szklany
+  nagłówek i kartę treści. Obrazy mają proporcje obszaru okna, więc rozciągnięcie trafia
+  kartami w kontrolki przy każdym skalowaniu ekranu. }
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpWelcome) or (CurPageID = wpFinished) then
+    WizardSetBackImage([WelcomeBackImage.PngImage], True, True, 255)
+  else
+    WizardSetBackImage([InnerBackImage.PngImage], True, True, 255);
+end;
 
 function FindLegacyInstallationAtRoot(
   RootKey: Integer;
