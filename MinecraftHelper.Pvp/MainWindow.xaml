@@ -1047,7 +1047,7 @@
                                 </Border>
                                 <TextBlock Style="{StaticResource GlassSub}" Margin="2,10,0,0">
                                     <Run Text="SzybkiPoPiwo ·"/>
-                                    <Hyperlink NavigateUri="https://github.com/SzybkiPoPiwo/MinecraftHelper" RequestNavigate="Hyperlink_RequestNavigate">github.com/SzybkiPoPiwo/MinecraftHelper</Hyperlink>
+                                    <Hyperlink NavigateUri="https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0" RequestNavigate="Hyperlink_RequestNavigate">github.com/SzybkiPoPiwo/Minecraft-Helper-3.0</Hyperlink>
                                 </TextBlock>
                             </StackPanel>
                         </Border>
