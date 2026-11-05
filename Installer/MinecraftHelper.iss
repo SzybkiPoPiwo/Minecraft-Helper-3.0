@@ -29,7 +29,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir={#InstallerOutputDir}
 OutputBaseFilename=MinecraftHelper-Setup-{#AppVersion}
-SetupIconFile=..\MinecraftHelper\Assets\app.ico
+SetupIconFile=installer.ico
 UninstallDisplayIcon={app}\MinecraftHelper.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
@@ -56,7 +56,7 @@ Name: "miner"; Description: "2. Kopacz — kopanie 5/3/3 i 6/3/3, Auto EQ, Cobbl
 Name: "desktopicons"; Description: "Utwórz skróty na pulpicie"; GroupDescription: "Dodatkowe ikony:"; Flags: unchecked
 
 [Files]
-Source: "..\MinecraftHelper\Assets\app.ico"; DestDir: "{app}"; DestName: "MinecraftHelper.ico"; Flags: ignoreversion
+Source: "installer.ico"; DestDir: "{app}"; DestName: "MinecraftHelper.ico"; Flags: ignoreversion
 Source: "{#AutoClickerPublishDir}\*"; DestDir: "{app}\AutoClicker"; Components: autoclicker; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#MinerPublishDir}\*"; DestDir: "{app}\Kopacz"; Components: miner; Flags: ignoreversion recursesubdirs createallsubdirs
 

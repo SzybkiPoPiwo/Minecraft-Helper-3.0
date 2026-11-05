@@ -7,7 +7,7 @@ Ten poradnik pozwala zbudować aplikację bez uruchamiania gotowego instalatora.
 - `MinecraftHelper/` — kod aplikacji `Minecraft Helper Kopacz`,
 - `MinecraftHelper.Pvp/` — kod lekkiej aplikacji `Minecraft Helper Auto Clicker`,
 - `MinecraftHelper/Assets/` — ikona i zasoby programu,
-- `Installer/` — definicja instalatora Inno Setup,
+- `Installer/` — definicja instalatora Inno Setup i jego ikona (`installer.ico`),
 - `scripts/` — skrypty testowania, publikowania i budowania instalatora,
 - `tests/` — testy regresji obu aplikacji.
 
