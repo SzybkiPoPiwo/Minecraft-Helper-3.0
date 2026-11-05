@@ -118,7 +118,7 @@ Bind zamienia założony komplet z drugim setem z ekwipunku. Raz kalibrujesz osi
 
 ## Kopacz
 
-Okno z paskiem bocznym: **Konta** i **Logi** dotyczą wszystkich kont, a **Kopanie**, **Ekwipunek**, **Ochrona**, **Okno gry**, **Narzędzia** i **Ustawienia** — wybranego konta. Pasek u góry pokazuje stan konta, czas sesji i przycisk START.
+Okno z paskiem bocznym: **Konta** i **Logi** dotyczą wszystkich kont, a **Kopanie**, **Ekwipunek**, **Ochrona**, **Okno gry**, **Narzędzia** i **Ustawienia** — wybranego konta. Pasek u góry pokazuje stan konta, czas sesji, przycisk START, **Podgląd** (obraz gry tego konta na żywo w osobnym oknie) i **Kalibruj okno**. Ikona `>_` na dole paska bocznego otwiera **konsolę zdarzeń** — dziennik programu na żywo, z filtrem poziomu i kopiowaniem.
 
 ### Kopanie
 
@@ -244,9 +244,16 @@ Jedno uruchomienie Kopacza to jedna sesja. Po rozwinięciu widać kolejne skany 
   <sub>Karta bota i okno włączania komend.</sub>
 </p>
 
-Własny bot na Twoim serwerze Discord wysyła powiadomienia i przyjmuje komendy z telefonu. Przycisk **Jak skonfigurować?** prowadzi krok po kroku: od utworzenia bota w Developer Portal po pierwszą komendę. Bot działa tylko w Kopaczu.
+Własny bot na Twoim serwerze Discord wysyła powiadomienia i przyjmuje komendy z telefonu. Przycisk **Jak skonfigurować?** prowadzi krok po kroku: od utworzenia bota w Developer Portal po pierwszą komendę. Bot działa tylko w Kopaczu i dopóki działa główne okno Kopacza (także schowane w zasobniku).
 
-**Powiadomienia** (każde można wyłączyć): alarm ochrony, reconnect, brak kilofa, start i koniec kopania z podsumowaniem sesji oraz błędy. Karty mają zrzut ekranu z gry, robiony dopiero, gdy ekran pokazuje skutek akcji, a przy alarmach — oznaczenie właściciela. **Testuj powiadomienia** wysyła przykład każdej karty.
+**Konfiguracja w skrócie:**
+
+1. W Developer Portal utwórz aplikację i bota oraz włącz **Message Content Intent** — bez niego bot nie widzi treści komend.
+2. Zaproś bota na swój serwer (poradnik buduje link zaproszenia z tokenu).
+3. W karcie Bot Discord wklej token (Enter albo **Zapisz** — przełącznik bota włączy się sam), ID kanału i swoje ID jako właściciela.
+4. **Wyślij test** sprawdza token, kanał i uprawnienia jedną wiadomością.
+
+**Powiadomienia** (każde można wyłączyć): alarm ochrony, reconnect, brak kilofa, start i koniec kopania z podsumowaniem sesji oraz błędy. Karty mają zrzut ekranu z gry, robiony dopiero, gdy ekran pokazuje skutek akcji, a przy alarmach — oznaczenie właściciela. **Testuj powiadomienia** wysyła przykład każdej karty. Opcjonalnie bot co ustawioną liczbę minut wysyła też **cykliczny zrzut ekranu** i **status** wszystkich kont (`0` = wyłączone).
 
 **Komendy** przyjmuje tylko od wpisanych właścicieli, na ustawionym kanale albo w wiadomości prywatnej:
 

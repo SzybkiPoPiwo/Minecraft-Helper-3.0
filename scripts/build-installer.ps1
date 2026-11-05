@@ -65,6 +65,7 @@ function Publish-App(
         -p:AssemblyVersion="$Version.0" `
         -p:FileVersion="$Version.0" `
         -p:InformationalVersion="$Version-$InformationalSuffix" `
+        -p:IncludeSourceRevisionInInformationalVersion=false `
         -p:PublishSingleFile=$singleFileValue `
         -p:IncludeNativeLibrariesForSelfExtract=$singleFileValue `
         -p:IncludeAllContentForSelfExtract=$singleFileValue `
