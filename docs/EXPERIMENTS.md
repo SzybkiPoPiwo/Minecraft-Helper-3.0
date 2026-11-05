@@ -186,9 +186,9 @@ z przeglądarki; brak skoku kursora i dalsze działanie ręcznego kliknięcia w 
 
 ## Auto reconnect i powrót do kopania
 
-Status: aktywny prototyp w zakładce `Experimental` (27.09.2026).
+Status: wdrożone w zakładce `Ochrona` (prototyp z 27.09.2026). Od wersji 3.0 obsługuje też menu główne, ekran rozłączenia (10 s, `F5`) i tryb `Kopanie w tle`.
 
-Mechanizm działa wyłącznie przy widocznym, aktywnym oknie Minecrafta i nie
+Mechanizm działa z aktywnym oknem Minecrafta albo w trybie `Kopanie w tle` i nie
 otwiera już samodzielnie EQ w osobnym interwale. Kontrola została podpięta pod
 zaplanowany cykl Auto EQ. Jeżeli podczas tego cyklu gra trzykrotnie nie otworzy
 ekwipunku albo nie uda się rozpoznać jego ekranu, uruchamiana jest maszyna

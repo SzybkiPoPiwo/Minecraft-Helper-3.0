@@ -20,7 +20,7 @@ Otwórz sekcję `Konta` w pasku bocznym Kopacza. W panelu można:
 - przypisać profilowi okno Minecrafta z listy (okna innych kont są oznaczone jako zajęte);
 - uruchomić lub zatrzymać kopanie na wybranym koncie;
 - uruchomić wszystkie bezczynne konta (co 1,5 s) albo zatrzymać wszystkie;
-- obserwować stan, czas pracy, statystyki i podgląd Live (co 1, 2 albo 5 s);
+- obserwować stan, czas pracy, statystyki i podgląd Live (10, 20 albo 30 kl./s; powiększony podgląd do 60 kl./s);
 - kliknąć podgląd, aby go powiększyć (cały ekran, hotbar z jedzeniem, ekwipunek);
 - usunąć zatrzymany profil razem z jego ustawieniami i logami (po wybraniu innego konta).
 
@@ -129,7 +129,7 @@ Każdy proces udostępnia nazwany kanał Windows dostępny tylko dla bieżącego
 MinecraftHelper.Miner.<id-profilu>
 ```
 
-Polecenia zdalne (przyszły bot Discord) są ograniczone do białej listy:
+Kanał przyjmuje wyłącznie polecenia z białej listy. Podstawowe tylko odczytują stan, zwracają obraz albo zatrzymują pracę:
 
 | Polecenie | Działanie |
 |---|---|
@@ -140,8 +140,13 @@ Polecenia zdalne (przyszły bot Discord) są ograniczone do białej listy:
 | `inventory` / `ekwipunek` | wykryte GUI ekwipunku na żywo; gdy jest zamknięte — ostatni skan EQ z jego wiekiem (bez żadnego skanu: cały ekran z adnotacją) |
 | `stop` | natychmiastowe zatrzymanie wskazanego Kopacza |
 
-Panel wielu kont używa dodatkowo poleceń lokalnych, niedostępnych dla Discorda:
-`start`, `window <pid>`, `preview` (mały obraz do kart), `show` i `reload`.
+Polecenia sterujące: `start [tryb]`, `join [tryb]` (wejście na serwer jak Auto Reconnect, potem
+kopanie), `leave` (wyjście z serwera), `window <pid>`, `preview` (mały obraz do kart), `show`,
+`reload`, `arrange` (kalibracja okna) i `clear-logs`. Kanał jest dostępny tylko dla
+bieżącego użytkownika Windows, więc korzystają z niego wyłącznie lokalne procesy: panel kont
+i bot Discord działający w głównym procesie Kopacza. Bot wysyła tylko polecenia odpowiadające
+jego komendom (`status`, `screenshot`, `jedzenie`, `ekwipunek`, `start`, `stop`,
+`join`, `leave`); `window`, `arrange` czy `clear-logs` są z Discorda niedostępne.
 
 Wspólny panel koordynuje wybór i zamykanie kont przez dodatkowy kanał
 `MinecraftHelper.Miner.Workspace`, dostępny tylko bieżącemu użytkownikowi Windows.
