@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0</strong>
+  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0</strong> · <a href="LICENSE"><strong>GPL-3.0</strong></a>
 </p>
 
 <p align="center">
@@ -19,7 +19,8 @@
   <a href="#bot-discord">Bot Discord</a> ·
   <a href="#instalacja">Instalacja</a> ·
   <a href="#budowanie-ze-źródeł">Budowanie</a> ·
-  <a href="#zmiany-w-wersji-30">Zmiany</a>
+  <a href="#zmiany-w-wersji-30">Zmiany</a> ·
+  <a href="#licencja">Licencja</a>
 </p>
 
 <p align="center">
@@ -370,6 +371,12 @@ Pierwsze wydanie w tym repozytorium. Zastępuje wersje 2.0.x; ustawienia, bindy,
 - Auto EQ, CobbleX i reconnect przy zminimalizowanej grze (dziś czekają na przywrócenie okna),
 - odczytywanie informacji z czatu,
 - dalsze testy ochrony i Auto Reconnect na różnych klientach i serwerach.
+
+## Licencja
+
+Minecraft Helper jest wolnym oprogramowaniem na licencji [GNU GPL 3.0](LICENSE) — Copyright © 2026 SzybkiPoPiwo. Możesz go używać, zmieniać i rozpowszechniać, także we własnej wersji, pod warunkiem że udostępnisz jej kod źródłowy na tej samej licencji i zachowasz informację o autorach. Program jest dostarczany bez żadnej gwarancji.
+
+Minecraft jest znakiem towarowym Mojang Synergies AB i Microsoft. Minecraft Helper nie jest oficjalnym produktem Minecrafta ani nie jest powiązany z Mojang czy Microsoftem (*NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.*). Repozytorium nie zawiera tekstur gry — paczkę zasobów Kopacz buduje z kopii Minecrafta zainstalowanej u użytkownika.
 
 ## Kontakt
 

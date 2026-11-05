@@ -9,7 +9,8 @@ Ten poradnik pozwala zbudować aplikację bez uruchamiania gotowego instalatora.
 - `MinecraftHelper/Assets/` — ikona i zasoby programu,
 - `Installer/` — definicja instalatora Inno Setup i jego ikona (`installer.ico`),
 - `scripts/` — skrypty testowania, publikowania i budowania instalatora,
-- `tests/` — testy regresji obu aplikacji.
+- `tests/` — testy regresji obu aplikacji,
+- `LICENSE` — licencja GNU GPL 3.0.
 
 Paczki zasobów do Auto EQ i CobbleX nie ma w repozytorium — Kopacz tworzy ją sam z plików gry użytkownika (`MinecraftHelper/Services/MarkerResourcePack.cs`).
 

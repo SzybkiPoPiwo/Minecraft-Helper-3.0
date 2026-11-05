@@ -24,6 +24,7 @@ AppName={#MyAppName}
 AppVersion={#AppVersion}
 VersionInfoVersion={#AppVersion}.0
 AppPublisher=SzybkiPoPiwo
+AppCopyright=Copyright © 2026 SzybkiPoPiwo — GNU GPL 3.0
 DefaultDirName={localappdata}\Programs\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
