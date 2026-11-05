@@ -1,0 +1,388 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+
+namespace MinecraftHelper
+{
+    internal sealed class FirstRunGuideWindow : Window
+    {
+        [DllImport("dwmapi.dll")]
+        private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
+
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
+        private readonly CheckBox _confirmationCheckBox;
+        private readonly Button _okButton;
+        private readonly TextBlock _validationText;
+        private bool _isConfirmed;
+
+        public FirstRunGuideWindow(bool isFirstRun, string currentVersion, string previousVersion)
+        {
+            string safeCurrentVersion = string.IsNullOrWhiteSpace(currentVersion) ? "nieznana" : currentVersion.Trim();
+            string safePreviousVersion = previousVersion?.Trim() ?? string.Empty;
+
+            Title = isFirstRun
+                ? "Pierwsze uruchomienie — Minecraft Helper Kopacz"
+                : $"Informacje o wersji {safeCurrentVersion} — Minecraft Helper Kopacz";
+            Width = 700;
+            Height = Math.Min(650, Math.Max(540, SystemParameters.WorkArea.Height - 70));
+            MinWidth = 620;
+            MinHeight = 540;
+            ResizeMode = ResizeMode.NoResize;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            ShowInTaskbar = false;
+            GlassChrome.Apply(this);
+
+            var root = new Border
+            {
+                Background = BrushFromRgb(16, 28, 46),
+                BorderBrush = BrushFromRgb(75, 98, 131),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(22)
+            };
+
+            var layout = new Grid();
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            layout.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var header = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+            header.Children.Add(new Border
+            {
+                Width = 32,
+                Height = 32,
+                CornerRadius = new CornerRadius(16),
+                Background = BrushFromRgb(23, 58, 88),
+                BorderBrush = BrushFromRgb(46, 168, 255),
+                BorderThickness = new Thickness(1),
+                Child = new TextBlock
+                {
+                    Text = "i",
+                    FontSize = 18,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = BrushFromRgb(127, 200, 255),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
+                }
+            });
+            header.Children.Add(new TextBlock
+            {
+                Text = isFirstRun
+                    ? "Witaj w Minecraft Helper Kopacz"
+                    : $"Wykryto zmianę wersji — {safeCurrentVersion}",
+                Margin = new Thickness(12, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 20,
+                FontWeight = FontWeights.Bold,
+                Foreground = BrushFromRgb(127, 200, 255)
+            });
+            Grid.SetRow(header, 0);
+            layout.Children.Add(header);
+
+            var introduction = new TextBlock
+            {
+                Text = BuildIntroduction(isFirstRun, safePreviousVersion, safeCurrentVersion),
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 13,
+                LineHeight = 20,
+                Foreground = BrushFromRgb(207, 219, 235),
+                Margin = new Thickness(0, 0, 0, 14)
+            };
+            Grid.SetRow(introduction, 1);
+            layout.Children.Add(introduction);
+
+            var guidePanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 8, 0)
+            };
+
+            if (isFirstRun)
+            {
+                guidePanel.Children.Add(BuildInfoCard(
+                    "Najpierw przygotuj program",
+                    "1. Uruchom Minecrafta lub BlazingPacka i wejdź do gry.\n" +
+                    "2. W zakładce Ustawienia kliknij Odśwież, wybierz właściwy proces gry — nie launcher — i kliknij Zapisz program.\n" +
+                    "3. Włącz dołączoną paczkę zasobów, jeżeli chcesz korzystać z Auto EQ, kontroli kilofa lub ochrony awaryjnej.\n" +
+                    "4. Rozwiń używany tryb Kopacza i przeczytaj jego pełny opis pod przyciskiem ?."));
+                guidePanel.Children.Add(BuildInfoCard(
+                    "Kopacz i Auto EQ — najważniejsze",
+                    "• Wybierz Kopacz 5/3/3 albo 6/3/3 i przypisz osobny bind uruchamiania.\n" +
+                    "• Auto EQ działa wyłącznie podczas aktywnego Kopacza i wymaga aktualnej paczki zasobów oraz GUI Scale: Large.\n" +
+                    "• Najpierw użyj testu wykrywania EQ, a profile reconnectu sprawdzaj etapami.\n" +
+                    "• Ten sam bind zatrzymuje Kopacza także podczas skanowania, wyrzucania, komendy i reconnectu.\n" +
+                    "• Automatyzacja działa tylko przy widocznym, aktywnym oknie Minecrafta."));
+            }
+            else
+            {
+                guidePanel.Children.Add(BuildInfoCard(
+                    "Zgodność zapisanych ustawień",
+                    BuildCompatibilityText(safePreviousVersion, safeCurrentVersion)));
+            }
+
+            AddReleaseNotesCards(guidePanel, isFirstRun, safePreviousVersion, safeCurrentVersion);
+            guidePanel.Children.Add(BuildInfoCard(
+                "Ważne przed rozpoczęciem",
+                "Najpierw przetestuj każdą funkcję osobno. Obserwuj górne kafelki stanu i HUD. Jeżeli coś działa inaczej niż oczekujesz, wyłącz funkcję jej bindem i sprawdź instrukcję pod ?."));
+            guidePanel.Children.Add(BuildInfoCard(
+                "Problemy, błędy i propozycje",
+                "Jeżeli napotkasz błąd, problem z działaniem albo masz propozycję nowej funkcji, napisz na Discordzie. Dane kontaktowe znajdziesz w zakładce Ustawienia w aplikacji."));
+
+            var scrollViewer = new ScrollViewer
+            {
+                Content = guidePanel,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                CanContentScroll = false,
+                PanningMode = PanningMode.VerticalFirst
+            };
+            Grid.SetRow(scrollViewer, 2);
+            layout.Children.Add(scrollViewer);
+
+            var footer = new StackPanel
+            {
+                Margin = new Thickness(0, 16, 0, 0)
+            };
+
+            var confirmationBorder = new Border
+            {
+                Background = BrushFromRgb(13, 36, 57),
+                BorderBrush = BrushFromRgb(46, 168, 255),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(12, 10, 12, 10)
+            };
+            _confirmationCheckBox = new CheckBox
+            {
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Cursor = Cursors.Hand,
+                Foreground = BrushFromRgb(232, 238, 248),
+                Content = new TextBlock
+                {
+                    Text = "Przeczytałem informacje, changelog i instrukcje dotyczące tej wersji. Wiem, że szczegółowe opisy znajdują się pod przyciskami ?.",
+                    TextWrapping = TextWrapping.Wrap,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = BrushFromRgb(232, 238, 248)
+                }
+            };
+            _confirmationCheckBox.Checked += ConfirmationCheckBox_Changed;
+            _confirmationCheckBox.Unchecked += ConfirmationCheckBox_Changed;
+            confirmationBorder.Child = _confirmationCheckBox;
+            footer.Children.Add(confirmationBorder);
+
+            _validationText = new TextBlock
+            {
+                Text = "Najpierw zaznacz potwierdzenie powyżej.",
+                Margin = new Thickness(0, 8, 0, 0),
+                Foreground = BrushFromRgb(251, 191, 36),
+                FontWeight = FontWeights.SemiBold,
+                Visibility = Visibility.Collapsed
+            };
+            footer.Children.Add(_validationText);
+
+            _okButton = new Button
+            {
+                Content = "OK — przejdź do programu",
+                Width = 210,
+                Height = 34,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 12, 0, 0),
+                IsEnabled = false,
+                IsDefault = true,
+                Style = GlassChrome.GetStyle("GlassPrimaryButton")
+            };
+            _okButton.Click += OkButton_Click;
+            footer.Children.Add(_okButton);
+
+            Grid.SetRow(footer, 3);
+            layout.Children.Add(footer);
+
+            root.Child = layout;
+            Content = root;
+
+            Closing += FirstRunGuideWindow_Closing;
+            PreviewKeyDown += FirstRunGuideWindow_PreviewKeyDown;
+            Loaded += (_, __) => _confirmationCheckBox.Focus();
+        }
+
+        private static string BuildIntroduction(bool isFirstRun, string previousVersion, string currentVersion)
+        {
+            if (isFirstRun)
+            {
+                return "Nie znaleziono zapisanego pliku ustawień, dlatego wygląda na to, że uruchamiasz Kopacza po raz pierwszy. Zanim włączysz automatyzację, zapoznaj się z interfejsem i instrukcjami pod przyciskami ?.";
+            }
+
+            if (string.IsNullOrWhiteSpace(previousVersion))
+            {
+                return $"Wykryto zapis ustawień ze starszej wersji, która nie przechowywała numeru wydania. Program działa teraz w wersji {currentVersion}. Przeczytaj informacje o zgodności i listę zmian.";
+            }
+
+            int comparison = ReleaseNotesCatalog.CompareVersions(previousVersion, currentVersion);
+            if (comparison > 0)
+            {
+                return $"Plik ustawień został zapisany przez nowszą wersję {previousVersion}, a uruchomiony program ma wersję {currentVersion}. Niektóre nowsze ustawienia mogą nie być dostępne w tej wersji.";
+            }
+
+            return $"Program został zmieniony z wersji {previousVersion} na {currentVersion}. Twoje dotychczasowe ustawienia zostaną wczytane, a poniżej znajdziesz najważniejsze nowe funkcje i poprawki.";
+        }
+
+        private static string BuildCompatibilityText(string previousVersion, string currentVersion)
+        {
+            if (string.IsNullOrWhiteSpace(previousVersion))
+            {
+#if MINER_EDITION
+                return "Starszy plik ustawień zostanie automatycznie uzupełniony o brakujące pola. Ustawienia Kopacza, Auto EQ, komend, reconnectu i HUD pozostaną zachowane.";
+#else
+                return "Starszy plik ustawień zostanie automatycznie uzupełniony o brakujące pola. Dotychczasowe bindy, CPS, komendy i pozostałe obsługiwane ustawienia pozostaną zachowane.";
+#endif
+            }
+
+            int comparison = ReleaseNotesCatalog.CompareVersions(previousVersion, currentVersion);
+            if (comparison > 0)
+            {
+                return "Uruchomiono starszy program z zapisem utworzonym przez nowszą wersję. Rozpoznane ustawienia zostaną wczytane, ale opcje dodane później mogą być niedostępne. Przed większymi zmianami wykonaj eksport ustawień.";
+            }
+
+#if MINER_EDITION
+            return "Program automatycznie uzupełni brakujące pola nowej wersji. Ustawienia Kopacza, Auto EQ, komend, reconnectu i HUD pozostaną zachowane.";
+#else
+            return "Program automatycznie uzupełni brakujące pola nowej wersji. Dotychczasowe bindy, CPS, komendy i pozostałe obsługiwane ustawienia pozostaną zachowane.";
+#endif
+        }
+
+        private static void AddReleaseNotesCards(
+            Panel target,
+            bool isFirstRun,
+            string previousVersion,
+            string currentVersion)
+        {
+#if MINER_EDITION
+            target.Children.Add(BuildInfoCard(
+                "Osobne wydanie Kopacz",
+                "• To wydanie zawiera Kopacza 5/3/3 i 6/3/3, Auto EQ, CobbleX, logi, Auto Reconnect, ochronę awaryjną i automatyzację pomocniczą.\n" +
+                "• Clickery LPM/PPM, BINDY i Auto zbroja zostały przeniesione do osobnej, lekkiej aplikacji Auto Clicker.\n" +
+                "• Kopacz nie uruchamia globalnego nasłuchu myszy używanego wcześniej przez clickery."));
+            return;
+#else
+            IReadOnlyList<AppReleaseNotes> notes = ReleaseNotesCatalog.GetNotesForStartup(
+                previousVersion,
+                currentVersion,
+                isFirstRun);
+
+            foreach (AppReleaseNotes release in notes)
+            {
+                string changes = string.Join("\n", release.Changes.Select(change => "• " + change));
+                target.Children.Add(BuildInfoCard(
+                    $"Wersja {release.Version} — {release.Title}",
+                    changes));
+            }
+#endif
+        }
+
+        private static Border BuildInfoCard(string title, string text)
+        {
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = title,
+                FontSize = 14,
+                FontWeight = FontWeights.Bold,
+                Foreground = BrushFromRgb(127, 200, 255),
+                Margin = new Thickness(0, 0, 0, 7)
+            });
+            panel.Children.Add(new TextBlock
+            {
+                Text = text,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12.5,
+                LineHeight = 19,
+                Foreground = BrushFromRgb(207, 219, 235)
+            });
+
+            return new Border
+            {
+                Background = BrushFromRgb(21, 35, 55),
+                BorderBrush = BrushFromRgb(62, 83, 110),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(13),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = panel
+            };
+        }
+
+        private void ConfirmationCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            bool isAccepted = _confirmationCheckBox.IsChecked == true;
+            _okButton.IsEnabled = isAccepted;
+            if (isAccepted)
+                _validationText.Visibility = Visibility.Collapsed;
+        }
+
+        private void OkButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_confirmationCheckBox.IsChecked != true)
+            {
+                ShowValidationMessage();
+                return;
+            }
+
+            _isConfirmed = true;
+            DialogResult = true;
+        }
+
+        private void FirstRunGuideWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            if (_isConfirmed)
+                return;
+
+            e.Cancel = true;
+            ShowValidationMessage();
+        }
+
+        private void FirstRunGuideWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Escape)
+            {
+                ShowValidationMessage();
+                e.Handled = true;
+                return;
+            }
+
+            if (e.Key == Key.Enter && _confirmationCheckBox.IsChecked == true)
+            {
+                OkButton_Click(_okButton, new RoutedEventArgs());
+                e.Handled = true;
+            }
+        }
+
+        private void ShowValidationMessage()
+        {
+            _validationText.Visibility = Visibility.Visible;
+            Activate();
+            _confirmationCheckBox.Focus();
+        }
+
+        // Kolory starego, ciemnego przewodnika zamieniane na odpowiedniki glass.
+        private static SolidColorBrush BrushFromRgb(byte red, byte green, byte blue)
+        {
+            var brush = GlassPalette.MapLegacyBrush(red, green, blue).CloneCurrentValue();
+            brush.Freeze();
+            return brush;
+        }
+    }
+}

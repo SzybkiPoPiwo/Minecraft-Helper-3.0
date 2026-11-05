@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+    <Compile Include="../../MinecraftHelper.Pvp/MainWindow.Idle.cs" Link="MainWindow.Idle.cs" />
+    <Compile Include="../../MinecraftHelper.Pvp/Services/CursorVisibilityProbe.cs" Link="CursorVisibilityProbe.cs" />
+    <Compile Include="../../MinecraftHelper.Pvp/Models/PvpSettings.cs" Link="PvpSettings.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,60 @@
+<Window x:Class="MinecraftHelper.StartupSplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MinecraftHelper"
+        Width="520"
+        Height="300"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        UseLayoutRounding="True"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="{StaticResource GlassFont}"
+        Loaded="Window_Loaded"
+        Closed="Window_Closed">
+    <Grid Margin="16">
+        <Border CornerRadius="26" Background="{DynamicResource GlassBackdropBrush}" BorderBrush="#E6FFFFFF" BorderThickness="1"
+                Effect="{StaticResource GlassPopupShadow}"/>
+        <Border CornerRadius="26" Padding="26,22">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <StackPanel VerticalAlignment="Center">
+                    <Image Name="ImgAppIcon"
+                           Width="96"
+                           Height="96"
+                           Stretch="Uniform"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           HorizontalAlignment="Center"/>
+                    <TextBlock Text="Minecraft Helper — Kopacz"
+                               Margin="0,10,0,4"
+                               HorizontalAlignment="Center"
+                               FontSize="22"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource GlassInkBrush}"/>
+                    <TextBlock Name="TxtLoading"
+                               Text="Uruchamianie"
+                               HorizontalAlignment="Center"
+                               FontSize="12.5"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource GlassInk2Brush}"/>
+                </StackPanel>
+
+                <ProgressBar Name="PrgLoading"
+                             Grid.Row="1"
+                             Height="8"
+                             Margin="0,12,0,0"
+                             Minimum="0"
+                             Maximum="100"
+                             Value="0"
+                             IsIndeterminate="False"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

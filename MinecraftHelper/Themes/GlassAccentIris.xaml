@@ -1,0 +1,52 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Akcent Iris dla motywu glass (GlassTheme.xaml). -->
+    <Color x:Key="GlassAccentColor">#5458E8</Color>
+    <Color x:Key="GlassAccent2Color">#7C3AED</Color>
+    <Color x:Key="GlassBlob1Color">#668B5CF6</Color>
+    <Color x:Key="GlassBlob2Color">#4D5458E8</Color>
+    <Color x:Key="GlassBlob3Color">#47F472B6</Color>
+    <SolidColorBrush x:Key="GlassAccentSolidBrush" Color="#5458E8"/>
+    <SolidColorBrush x:Key="GlassAccentInkBrush" Color="#4045D6"/>
+    <SolidColorBrush x:Key="GlassAccentSoftBrush" Color="#1F5458E8"/>
+    <LinearGradientBrush x:Key="GlassAccentBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#5458E8"/>
+        <GradientStop Offset="1" Color="#7C3AED"/>
+    </LinearGradientBrush>
+    <DrawingBrush x:Key="GlassBackdropBrush" Stretch="Fill" Viewbox="0,0,1,1" ViewboxUnits="Absolute">
+        <DrawingBrush.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#EEF1F8">
+                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1"/></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Brush>
+                        <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.8" RadiusY="0.45">
+                            <GradientStop Offset="0" Color="#668B5CF6"/>
+                            <GradientStop Offset="1" Color="#008B5CF6"/>
+                        </RadialGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1"/></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Brush>
+                        <RadialGradientBrush Center="1,0.35" GradientOrigin="1,0.35" RadiusX="0.72" RadiusY="0.4">
+                            <GradientStop Offset="0" Color="#4D5458E8"/>
+                            <GradientStop Offset="1" Color="#005458E8"/>
+                        </RadialGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1"/></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing>
+                    <GeometryDrawing.Brush>
+                        <RadialGradientBrush Center="0.4,1.05" GradientOrigin="0.4,1.05" RadiusX="0.88" RadiusY="0.48">
+                            <GradientStop Offset="0" Color="#47F472B6"/>
+                            <GradientStop Offset="1" Color="#00F472B6"/>
+                        </RadialGradientBrush>
+                    </GeometryDrawing.Brush>
+                    <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,1,1"/></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingBrush.Drawing>
+    </DrawingBrush>
+</ResourceDictionary>

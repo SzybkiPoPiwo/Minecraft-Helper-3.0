@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+    <ProjectReference Include="../../MinecraftHelper/MinecraftHelper.csproj" Aliases="production" />
+    <Compile Include="../../MinecraftHelper/Services/GoldDepositFlow.cs" Link="GoldDepositFlow.cs" />
+    <Compile Include="../../MinecraftHelper/Services/InventoryMarkerDetector.cs" Link="InventoryMarkerDetector.cs" />
+    <Compile Include="../../MinecraftHelper/Models/AppSettings.cs" Link="AppSettings.cs" />
+  </ItemGroup>
+</Project>

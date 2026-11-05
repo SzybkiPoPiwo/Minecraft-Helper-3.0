@@ -1,0 +1,1663 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Threading.Tasks;
+using System.Windows.Threading;
+using MinecraftHelper.Models;
+using MinecraftHelper.Services;
+using Microsoft.Win32;
+
+namespace MinecraftHelper
+{
+    /// <summary>
+    /// Sekcja „Logi”: tabela wszystkich kont (stan na żywo + podsumowanie ich logów) oraz historia
+    /// wybranego konta. Logi innych kont są czytane bez zapisu — ich Kopacze mogą właśnie pracować.
+    /// </summary>
+    internal sealed class MiningLogsPanel : UserControl
+    {
+        private readonly MiningLogService _ownLogService;
+        private readonly string _currentProfileId;
+        private readonly StackPanel _accountsRows = new();
+        private readonly TextBlock _historyTitle = new() { FontSize = 17, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center };
+        private readonly Button _showOwnButton;
+        private readonly DispatcherTimer _accountsTimer;
+        private readonly DispatcherTimer _refreshDebounce;
+        private bool _viewDirty = true;
+        private MiningLogService _logService;
+        private string _viewedProfileId;
+        private bool _refreshingAccounts;
+        private readonly TextBlock _cobbleXValue;
+        private readonly TextBlock _discardedValue;
+        private readonly TextBlock _periodValue;
+        private readonly StackPanel _entriesPanel;
+        private readonly HashSet<string> _expandedEntryKeys = new(StringComparer.Ordinal);
+        private TextBox _searchBox = null!;
+        private TextBlock _resultCount = null!;
+        private Button _clearFilterButton = null!;
+        private Button _saveReportButton = null!;
+        private readonly Button _clearHistoryButton;
+        private IReadOnlyList<MiningLogEntry> _visibleEntries = Array.Empty<MiningLogEntry>();
+        private IReadOnlyList<MiningHistoryGroup> _visibleGroups = Array.Empty<MiningHistoryGroup>();
+
+        private sealed record MiningHistoryGroup(
+            MiningLogEntry Root,
+            IReadOnlyList<MiningLogEntry> Children,
+            bool IsMiningRun);
+
+        public MiningLogsPanel(MiningLogService logService, string currentProfileId)
+        {
+            _ownLogService = logService;
+            _logService = logService;
+            _currentProfileId = MinerProfileId.Normalize(currentProfileId);
+            _viewedProfileId = _currentProfileId;
+            _showOwnButton = new Button { Content = "Pokaż to konto", Style = GlassChrome.GetStyle("GlassTextButton"), Visibility = Visibility.Collapsed };
+            _showOwnButton.Click += (_, __) => ViewProfile(_currentProfileId);
+            _clearHistoryButton = new Button
+            {
+                Content = "Wyczyść historię",
+                Style = GlassChrome.GetStyle("GlassDangerButton"),
+                Margin = new Thickness(10, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                ToolTip = "Usuwa historię kopania oglądanego konta. Trwająca sesja zostaje. Nie da się tego cofnąć."
+            };
+            _clearHistoryButton.Click += async (_, __) => await ClearHistoryAsync();
+
+            var root = new Grid { Margin = new Thickness(4, 2, 8, 12) };
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star), MinHeight = 260 });
+            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            root.Children.Add(BuildHeader());
+
+            UIElement accounts = BuildAccountsCard();
+            Grid.SetRow(accounts, 1);
+            root.Children.Add(accounts);
+
+            var historyHeader = new DockPanel { Margin = new Thickness(4, 4, 4, 0) };
+            DockPanel.SetDock(_clearHistoryButton, Dock.Right);
+            DockPanel.SetDock(_showOwnButton, Dock.Right);
+            historyHeader.Children.Add(_clearHistoryButton);
+            historyHeader.Children.Add(_showOwnButton);
+            historyHeader.Children.Add(_historyTitle);
+
+            var summaryGrid = new Grid { Margin = new Thickness(0, 12, 0, 14) };
+            summaryGrid.ColumnDefinitions.Add(new ColumnDefinition());
+            summaryGrid.ColumnDefinitions.Add(new ColumnDefinition());
+            summaryGrid.ColumnDefinitions.Add(new ColumnDefinition());
+
+            _cobbleXValue = BuildSummaryValue();
+            _discardedValue = BuildSummaryValue();
+            _periodValue = BuildSummaryValue(fontSize: 13);
+            AddSummaryCard(summaryGrid, 0, "KOPANIE / EQ / COBBLEX", _cobbleXValue, new Thickness(0, 0, 7, 0));
+            AddSummaryCard(summaryGrid, 1, "WYRZUCONE PRZEDMIOTY", _discardedValue, new Thickness(7, 0, 7, 0));
+            AddSummaryCard(summaryGrid, 2, "ZAKRES HISTORII", _periodValue, new Thickness(7, 0, 0, 0));
+            var summaryHost = new StackPanel();
+            summaryHost.Children.Add(historyHeader);
+            summaryHost.Children.Add(summaryGrid);
+            Grid.SetRow(summaryHost, 2);
+            root.Children.Add(summaryHost);
+
+            UIElement filterBar = BuildFilterBar();
+            Grid.SetRow(filterBar, 3);
+            root.Children.Add(filterBar);
+
+            var historyBorder = new Border
+            {
+                Style = GlassChrome.GetStyle("GlassCard"),
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(6),
+                Margin = new Thickness(0)
+            };
+            var historyGrid = new Grid();
+            historyGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            historyGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            historyGrid.Children.Add(BuildColumnHeader());
+
+            _entriesPanel = new StackPanel();
+            var scrollViewer = new ScrollViewer
+            {
+                Content = _entriesPanel,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                CanContentScroll = false,
+                PanningMode = PanningMode.VerticalFirst,
+                Padding = new Thickness(0, 0, 3, 0)
+            };
+            Grid.SetRow(scrollViewer, 1);
+            historyGrid.Children.Add(scrollViewer);
+            historyBorder.Child = historyGrid;
+            Grid.SetRow(historyBorder, 4);
+            root.Children.Add(historyBorder);
+
+            var footer = BuildFooter();
+            Grid.SetRow(footer, 5);
+            root.Children.Add(footer);
+
+            Content = root;
+            _accountsTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+            _accountsTimer.Tick += async (_, __) => await RefreshAccountsAsync();
+            _refreshDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(400) };
+            _refreshDebounce.Tick += (_, __) =>
+            {
+                _refreshDebounce.Stop();
+                if (_viewDirty && IsVisible)
+                    RefreshView();
+            };
+            // Zakładka wywołuje Loaded przy każdym pokazaniu — lista jest budowana tylko wtedy,
+            // gdy dziennik zmienił się od ostatniego razu (wcześniej za każdym wejściem w Logi).
+            Loaded += async (_, __) =>
+            {
+                _ownLogService.Changed += LogService_Changed;
+                if (_viewDirty)
+                    RefreshView();
+                _accountsTimer.Start();
+                await RefreshAccountsAsync();
+            };
+            Unloaded += (_, __) =>
+            {
+                _ownLogService.Changed -= LogService_Changed;
+                _accountsTimer.Stop();
+                _refreshDebounce.Stop();
+            };
+        }
+
+        private Window? HostWindow => Window.GetWindow(this);
+
+        private UIElement BuildAccountsCard()
+        {
+            var header = new Grid();
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) });
+            foreach (int _ in Enumerable.Range(0, 6))
+                header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            string[] titles = { "KONTO", "STAN TERAZ", "SESJE", "SKANY EQ", "WYRZUCONE", "COBBLEX", "OSTATNIO" };
+            for (int index = 0; index < titles.Length; index++)
+            {
+                var title = new TextBlock { Text = titles[index], Style = GlassChrome.GetStyle("GlassCaption"), Margin = new Thickness(index == 0 ? 10 : 6, 0, 6, 6) };
+                Grid.SetColumn(title, index);
+                header.Children.Add(title);
+            }
+
+            var body = new StackPanel();
+            var top = new DockPanel { Margin = new Thickness(0, 0, 0, 12) };
+            var hint = new TextBlock { Text = "Kliknij konto, żeby zobaczyć jego historię", Style = GlassChrome.GetStyle("GlassSub"), VerticalAlignment = VerticalAlignment.Center };
+            DockPanel.SetDock(hint, Dock.Right);
+            top.Children.Add(hint);
+            top.Children.Add(new TextBlock { Text = "Wszystkie konta", FontSize = 17, FontWeight = FontWeights.Bold });
+            body.Children.Add(top);
+            body.Children.Add(header);
+            body.Children.Add(_accountsRows);
+            return new Border
+            {
+                Style = GlassChrome.GetStyle("GlassCard"),
+                CornerRadius = new CornerRadius(22),
+                Padding = new Thickness(20, 18, 20, 14),
+                Margin = new Thickness(0, 0, 0, 14),
+                Child = body
+            };
+        }
+
+        private async Task RefreshAccountsAsync()
+        {
+            if (_refreshingAccounts)
+                return;
+
+            _refreshingAccounts = true;
+            try
+            {
+                List<MinerAccountProfile> profiles = new MinerAccountStore().Load().ToList();
+                var rows = new List<(MinerAccountProfile Profile, MiningLogSummary Summary, MinerRemoteStatus? Status)>();
+                foreach (MinerAccountProfile profile in profiles)
+                {
+                    bool own = string.Equals(profile.Id, _currentProfileId, StringComparison.OrdinalIgnoreCase);
+                    MiningLogSummary summary = own
+                        ? _ownLogService.GetSummary()
+                        : await Task.Run(() => MiningLogService.OpenReadOnly(profile.Id).GetSummary());
+                    MinerRemoteStatus? status = null;
+                    try
+                    {
+                        MinerRemotePipeResponse response = await MinerRemoteControlClient.ExecuteAsync(profile.Id, "status");
+                        if (response.Success)
+                            status = response.Status;
+                    }
+                    catch
+                    {
+                        // Kopacz tego konta nie jest uruchomiony.
+                    }
+                    rows.Add((profile, summary, status));
+                }
+
+                _accountsRows.Children.Clear();
+                for (int index = 0; index < rows.Count; index++)
+                    _accountsRows.Children.Add(BuildAccountRow(rows[index].Profile, rows[index].Summary, rows[index].Status));
+            }
+            finally
+            {
+                _refreshingAccounts = false;
+            }
+        }
+
+        private UIElement BuildAccountRow(MinerAccountProfile profile, MiningLogSummary summary, MinerRemoteStatus? status)
+        {
+            bool viewed = string.Equals(profile.Id, _viewedProfileId, StringComparison.OrdinalIgnoreCase);
+            var grid = new Grid { MinHeight = 40 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) });
+            foreach (int _ in Enumerable.Range(0, 6))
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var name = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(10, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+            name.Children.Add(new Border
+            {
+                Width = 26,
+                Height = 26,
+                CornerRadius = new CornerRadius(9),
+                Background = GlassPalette.Accent,
+                Child = new TextBlock
+                {
+                    Text = string.IsNullOrWhiteSpace(profile.Name) ? "?" : profile.Name.Trim()[..1].ToUpperInvariant(),
+                    Foreground = Brushes.White,
+                    FontWeight = FontWeights.Bold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            });
+            name.Children.Add(new TextBlock { Text = profile.Name, FontWeight = FontWeights.SemiBold, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+            grid.Children.Add(name);
+
+            string state;
+            Brush stateBrush;
+            if (status == null)
+            {
+                state = "zamknięty";
+                stateBrush = GlassPalette.Muted;
+            }
+            else if (status.WindowOwnedByAnotherProfile || !status.WindowAvailable)
+            {
+                state = "brak okna";
+                stateBrush = GlassPalette.Bad;
+            }
+            else if (status.Running)
+            {
+                state = status.BackgroundActive ? "kopie w tle" : "kopie";
+                stateBrush = GlassPalette.Ok;
+            }
+            else
+            {
+                state = "bezczynny";
+                stateBrush = GlassPalette.Info;
+            }
+            var pill = new Border
+            {
+                Style = GlassChrome.GetStyle("GlassPill"),
+                Background = GlassPalette.SoftFor(stateBrush),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(6, 0, 6, 0),
+                Child = new TextBlock { Text = state, Foreground = stateBrush, VerticalAlignment = VerticalAlignment.Center }
+            };
+            Grid.SetColumn(pill, 1);
+            grid.Children.Add(pill);
+
+            string[] values =
+            {
+                summary.MiningRuns.ToString("N0", CultureInfo.CurrentCulture),
+                summary.InventorySessions.ToString("N0", CultureInfo.CurrentCulture),
+                summary.DiscardedItems.ToString("N0", CultureInfo.CurrentCulture),
+                summary.CobbleXCreated.ToString("N0", CultureInfo.CurrentCulture),
+                summary.LastActivity.HasValue ? summary.LastActivity.Value.LocalDateTime.ToString("dd.MM HH:mm", CultureInfo.InvariantCulture) : "—"
+            };
+            for (int index = 0; index < values.Length; index++)
+            {
+                var value = new TextBlock
+                {
+                    Text = values[index],
+                    Margin = new Thickness(6, 0, 6, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    FontWeight = index < 4 ? FontWeights.SemiBold : FontWeights.Normal,
+                    FontFamily = index == 4 ? (FontFamily)Application.Current.FindResource("GlassMonoFont") : FontFamily
+                };
+                Grid.SetColumn(value, index + 2);
+                grid.Children.Add(value);
+            }
+
+            var row = new Button
+            {
+                Content = grid,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Padding = new Thickness(0),
+                MinHeight = 0,
+                Margin = new Thickness(0, 0, 0, 4),
+                Background = viewed ? GlassPalette.AccentSoft : new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)),
+                BorderBrush = viewed ? GlassPalette.AccentSolid : GlassPalette.Line,
+                ToolTip = "Pokaż historię tego konta"
+            };
+            string profileId = profile.Id;
+            row.Click += (_, __) => ViewProfile(profileId);
+            return row;
+        }
+
+        private void ViewProfile(string profileId)
+        {
+            profileId = MinerProfileId.Normalize(profileId);
+            _viewedProfileId = profileId;
+            bool own = string.Equals(profileId, _currentProfileId, StringComparison.OrdinalIgnoreCase);
+            _logService = own ? _ownLogService : MiningLogService.OpenReadOnly(profileId);
+            _expandedEntryKeys.Clear();
+            RefreshView();
+            _ = RefreshAccountsAsync();
+        }
+
+        // W trakcie kopania dziennik zmienia się co chwilę (EQ, CobbleX, reconnect) — kilka
+        // zmian naraz daje jedno przebudowanie, a schowany panel tylko zapamiętuje, że jest nieaktualny.
+        private void LogService_Changed(object? sender, EventArgs e)
+        {
+            if (!Dispatcher.CheckAccess())
+            {
+                Dispatcher.BeginInvoke(new Action(() => LogService_Changed(sender, e)));
+                return;
+            }
+
+            _viewDirty = true;
+            if (!IsVisible)
+                return;
+            _refreshDebounce.Stop();
+            _refreshDebounce.Start();
+        }
+
+        private UIElement BuildHeader()
+        {
+            var panel = new StackPanel { Margin = new Thickness(4, 4, 4, 18) };
+            panel.Children.Add(new TextBlock { Text = "Logi", Style = GlassChrome.GetStyle("GlassH1") });
+            panel.Children.Add(new TextBlock
+            {
+                Text = "Wszystkie konta w jednym miejscu. Jedno uruchomienie Kopacza tworzy nadrzędną sesję — rozwiń ją, aby zobaczyć otwarcia EQ i zdarzenia Auto Reconnect, a potem kliknij wpis, aby sprawdzić pełne dane. „Wyczyść historię” usuwa historię oglądanego konta (trwająca sesja zostaje).",
+                Style = GlassChrome.GetStyle("GlassLead")
+            });
+            return panel;
+        }
+
+        private UIElement BuildFilterBar()
+        {
+            var grid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var label = new TextBlock
+            {
+                Text = "Szukaj w logach:",
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 10, 0),
+                FontWeight = FontWeights.SemiBold,
+                Foreground = Brush(168, 186, 211)
+            };
+            grid.Children.Add(label);
+
+            _searchBox = new TextBox
+            {
+                ToolTip = "Wpisz datę, godzinę, tryb kopacza, status, nazwę przedmiotu, CobbleX albo dowolny fragment szczegółów."
+            };
+            _searchBox.TextChanged += (_, __) => RefreshEntries();
+            Grid.SetColumn(_searchBox, 1);
+            grid.Children.Add(_searchBox);
+
+            _resultCount = new TextBlock
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(12, 0, 12, 0),
+                FontSize = 11,
+                Foreground = Brush(146, 166, 193)
+            };
+            Grid.SetColumn(_resultCount, 2);
+            grid.Children.Add(_resultCount);
+
+            _clearFilterButton = BuildButton("Wyczyść filtr", primary: false);
+            _clearFilterButton.MinWidth = 108;
+            _clearFilterButton.Click += (_, __) =>
+            {
+                _searchBox.Clear();
+                _searchBox.Focus();
+            };
+            Grid.SetColumn(_clearFilterButton, 3);
+            grid.Children.Add(_clearFilterButton);
+            return grid;
+        }
+
+        private static TextBlock BuildSummaryValue(double fontSize = 22)
+        {
+            return new TextBlock
+            {
+                FontSize = fontSize,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brush(56, 214, 180),
+                TextWrapping = TextWrapping.Wrap
+            };
+        }
+
+        private static void AddSummaryCard(Grid parent, int column, string label, TextBlock value, Thickness margin)
+        {
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = label,
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brush(146, 166, 193),
+                Margin = new Thickness(0, 0, 0, 7)
+            });
+            panel.Children.Add(value);
+
+            var border = new Border
+            {
+                Background = Brush(22, 31, 43),
+                BorderBrush = Brush(75, 98, 131),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(14, 11, 14, 11),
+                Margin = margin,
+                Child = panel
+            };
+            Grid.SetColumn(border, column);
+            parent.Children.Add(border);
+        }
+
+        private static UIElement BuildColumnHeader()
+        {
+            Grid header = BuildHistoryGrid();
+            header.Background = Brush(30, 46, 64);
+            header.Children.Add(BuildCell("DATA I GODZINA", 0, FontWeights.Bold, Brush(168, 186, 211)));
+            header.Children.Add(BuildCell("SESJA / TRYB", 1, FontWeights.Bold, Brush(168, 186, 211)));
+            header.Children.Add(BuildCell("WYNIK", 2, FontWeights.Bold, Brush(168, 186, 211)));
+            header.Children.Add(BuildCell("STATUS", 3, FontWeights.Bold, Brush(168, 186, 211)));
+            header.Children.Add(BuildCell("▼", 4, FontWeights.Bold, Brush(127, 200, 255)));
+            return header;
+        }
+
+        private UIElement BuildFooter()
+        {
+            var grid = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var pathText = new TextBlock
+            {
+                Text = "Plik historii: " + _logService.LogsFilePath,
+                FontSize = 10,
+                Foreground = Brush(112, 132, 159),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(0, 0, 16, 0)
+            };
+            grid.Children.Add(pathText);
+
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+            _saveReportButton = BuildButton("Zapisz raport", primary: false);
+            _saveReportButton.ToolTip = "Zapisuje aktualnie widoczne wpisy. Domyślne miejsce to Pulpit.";
+            _saveReportButton.Click += (_, __) => SaveReport();
+            buttons.Children.Add(_saveReportButton);
+            Grid.SetColumn(buttons, 1);
+            grid.Children.Add(buttons);
+            return grid;
+        }
+
+        private void RefreshView()
+        {
+            _viewDirty = false;
+            bool own = string.Equals(_viewedProfileId, _currentProfileId, StringComparison.OrdinalIgnoreCase);
+            string accountName = new MinerAccountStore().Load()
+                .FirstOrDefault(profile => string.Equals(profile.Id, _viewedProfileId, StringComparison.OrdinalIgnoreCase))?.Name
+                ?? (own ? "to konto" : _viewedProfileId);
+            _historyTitle.Text = own ? $"Historia — {accountName} (to konto)" : $"Historia — {accountName}";
+            _showOwnButton.Visibility = own ? Visibility.Collapsed : Visibility.Visible;
+            MiningLogSummary summary = _logService.GetSummary();
+            _cobbleXValue.Text = $"{summary.MiningRuns:N0} sesji kopania\n{summary.InventorySessions:N0} EQ • {summary.CobbleXCreated:N0} CobbleX";
+            int exactStacks = Math.Max(0, summary.DiscardedStacks - summary.LegacyDiscardedStacks);
+            _discardedValue.Text = $"{summary.DiscardedItems:N0} szt.\n{exactStacks:N0} stosów";
+            if (summary.LegacyDiscardedStacks > 0)
+                _discardedValue.Text += $"\n+ {summary.LegacyDiscardedStacks:N0} starych stosów*";
+            _periodValue.Text = summary.FirstActivity.HasValue && summary.LastActivity.HasValue
+                ? $"{summary.FirstActivity.Value.LocalDateTime:dd.MM.yyyy HH:mm}\n— {summary.LastActivity.Value.LocalDateTime:dd.MM.yyyy HH:mm}"
+                : "Brak danych";
+
+            RefreshEntries();
+        }
+
+        private void RefreshEntries()
+        {
+            IReadOnlyList<MiningLogEntry> allEntries = _logService.GetEntriesNewestFirst();
+            string query = _searchBox?.Text?.Trim() ?? string.Empty;
+            var runs = allEntries
+                .Where(entry => entry.Kind == MiningLogKinds.MiningRun)
+                .ToList();
+            var runIds = runs
+                .Where(run => !string.IsNullOrWhiteSpace(run.SessionId))
+                .Select(run => run.SessionId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var groups = new List<MiningHistoryGroup>();
+            foreach (MiningLogEntry run in runs)
+            {
+                List<MiningLogEntry> allChildren = allEntries
+                    .Where(entry => entry.Kind != MiningLogKinds.MiningRun
+                        && !string.IsNullOrWhiteSpace(entry.MiningRunId)
+                        && string.Equals(entry.MiningRunId, run.SessionId, StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(entry => entry.Timestamp)
+                    .ToList();
+
+                bool runMatches = string.IsNullOrWhiteSpace(query) || EntryMatchesSearch(run, query);
+                List<MiningLogEntry> visibleChildren = string.IsNullOrWhiteSpace(query) || runMatches
+                    ? allChildren
+                    : allChildren.Where(entry => EntryMatchesSearch(entry, query)).ToList();
+                if (runMatches || visibleChildren.Count > 0)
+                    groups.Add(new MiningHistoryGroup(run, visibleChildren, IsMiningRun: true));
+            }
+
+            IEnumerable<MiningLogEntry> standaloneEntries = allEntries.Where(entry =>
+                entry.Kind != MiningLogKinds.MiningRun
+                && (string.IsNullOrWhiteSpace(entry.MiningRunId) || !runIds.Contains(entry.MiningRunId)));
+            if (!string.IsNullOrWhiteSpace(query))
+                standaloneEntries = standaloneEntries.Where(entry => EntryMatchesSearch(entry, query));
+            groups.AddRange(standaloneEntries.Select(entry =>
+                new MiningHistoryGroup(entry, Array.Empty<MiningLogEntry>(), IsMiningRun: false)));
+
+            _visibleGroups = groups
+                .OrderByDescending(group => group.Root.Timestamp)
+                .ToList();
+            _visibleEntries = _visibleGroups
+                .SelectMany(group => group.IsMiningRun
+                    ? new[] { group.Root }.Concat(group.Children)
+                    : new[] { group.Root })
+                .ToList();
+
+            if (_resultCount != null)
+                _resultCount.Text = $"{_visibleGroups.Count:N0} sesji/wpisów • {_visibleEntries.Count:N0} zdarzeń";
+            if (_clearFilterButton != null)
+                _clearFilterButton.IsEnabled = !string.IsNullOrWhiteSpace(query);
+            if (_saveReportButton != null)
+                _saveReportButton.IsEnabled = _visibleEntries.Count > 0;
+            if (_clearHistoryButton != null)
+                _clearHistoryButton.IsEnabled = allEntries.Count > 0;
+
+            _entriesPanel.Children.Clear();
+            if (_visibleGroups.Count == 0)
+            {
+                _entriesPanel.Children.Add(new TextBlock
+                {
+                    Text = allEntries.Count == 0
+                        ? "Brak zapisanych sesji. Historia pojawi się po pierwszym uruchomieniu Kopacza."
+                        : "Brak wpisów pasujących do wyszukiwania.",
+                    Margin = new Thickness(18, 24, 18, 24),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    Foreground = Brush(146, 166, 193)
+                });
+                return;
+            }
+
+            for (int index = 0; index < _visibleGroups.Count; index++)
+            {
+                MiningHistoryGroup group = _visibleGroups[index];
+                _entriesPanel.Children.Add(group.IsMiningRun
+                    ? BuildMiningRunRow(group.Root, group.Children, index)
+                    : BuildHistoryRow(group.Root, index, nested: false));
+            }
+        }
+
+        private static bool EntryMatchesSearch(MiningLogEntry entry, string query)
+        {
+            string eventLabel = GetEventLabel(entry);
+            string countLabel = GetCountLabel(entry);
+            string searchable = string.Join(" ",
+                entry.Timestamp.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss"),
+                entry.Timestamp.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                eventLabel,
+                countLabel,
+                entry.Owner ?? string.Empty,
+                entry.EventType ?? string.Empty,
+                entry.CleanupMode ?? string.Empty,
+                GetStatusLabel(entry),
+                entry.Details ?? string.Empty,
+                entry.EndDetails ?? string.Empty,
+                entry.CobbleXCommand ?? string.Empty,
+                string.Join(" ", entry.SelectedSlots ?? new List<int>()),
+                string.Join(" ", entry.SelectedItemTypes ?? new List<string>()),
+                string.Join(" ", (entry.Items ?? new List<MiningLogItemDetail>()).Select(item => $"{item.Label} {item.ItemId} {item.ItemCount} {item.StackCount}")));
+            string[] terms = query.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return terms.All(term => searchable.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private UIElement BuildMiningRunRow(
+            MiningLogEntry run,
+            IReadOnlyList<MiningLogEntry> children,
+            int index)
+        {
+            Brush rowBackground = index % 2 == 0 ? Brush(17, 29, 43) : Brush(20, 34, 50);
+            Grid row = BuildHistoryGrid();
+            row.Children.Add(BuildCell(run.Timestamp.LocalDateTime.ToString("dd.MM.yyyy  HH:mm:ss"), 0, FontWeights.Normal, Brush(207, 219, 235)));
+            row.Children.Add(BuildCell(
+                string.IsNullOrWhiteSpace(run.Owner) ? "Sesja kopania" : $"Sesja kopania • {run.Owner}",
+                1,
+                FontWeights.Bold,
+                Brush(127, 200, 255),
+                wrap: true));
+
+            int inventoryCount = children.Count(entry => entry.Kind == MiningLogKinds.InventorySession);
+            int discardedItems = children
+                .Where(entry => entry.Kind == MiningLogKinds.InventorySession)
+                .Sum(entry => Math.Max(0, entry.ItemCount));
+            int cobbleX = children.Count(entry => entry.Kind == MiningLogKinds.InventorySession && entry.CobbleXCreated);
+            row.Children.Add(BuildCell(
+                $"{inventoryCount:N0} EQ • {discardedItems:N0} szt.\n{cobbleX:N0} CobbleX",
+                2,
+                FontWeights.Bold,
+                Brush(56, 214, 180),
+                wrap: true));
+            row.Children.Add(BuildCell(GetStatusLabel(run), 3, FontWeights.SemiBold, GetStatusBrush(run), wrap: true));
+
+            var arrow = new TextBlock
+            {
+                Text = "▶",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brush(127, 200, 255),
+                FontSize = 12
+            };
+            Grid.SetColumn(arrow, 4);
+            row.Children.Add(arrow);
+
+            string entryKey = GetEntryKey(run);
+            bool initiallyExpanded = _expandedEntryKeys.Contains(entryKey);
+            var childrenPanel = new StackPanel();
+            var childrenContainer = new Border
+            {
+                Visibility = initiallyExpanded ? Visibility.Visible : Visibility.Collapsed,
+                Background = Brush(10, 19, 30),
+                BorderBrush = Brush(46, 168, 255),
+                BorderThickness = new Thickness(3, 1, 1, 1),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(8, 0, 8, 8),
+                Padding = new Thickness(8, 8, 8, 2),
+                Child = childrenPanel
+            };
+            arrow.Text = initiallyExpanded ? "▼" : "▶";
+
+            // Zawartość sesji (często dziesiątki zdarzeń) powstaje dopiero przy pierwszym
+            // rozwinięciu — wcześniej każde wejście w Logi budowało ją dla wszystkich sesji.
+            bool childrenBuilt = false;
+            void EnsureChildren()
+            {
+                if (childrenBuilt)
+                    return;
+                childrenBuilt = true;
+                childrenPanel.Children.Add(new Border
+                {
+                    Background = Brush(13, 23, 35),
+                    BorderBrush = Brush(58, 108, 153),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(12, 9, 12, 9),
+                    Margin = new Thickness(0, 0, 0, 8),
+                    Child = new TextBlock
+                    {
+                        Text = BuildMiningRunSummary(run, children),
+                        TextWrapping = TextWrapping.Wrap,
+                        FontSize = 11,
+                        Foreground = Brush(168, 186, 211)
+                    }
+                });
+
+                if (children.Count == 0)
+                {
+                    childrenPanel.Children.Add(new TextBlock
+                    {
+                        Text = "Ta sesja nie zawiera jeszcze otwarć EQ ani zdarzeń automatyzacji.",
+                        Foreground = Brush(146, 166, 193),
+                        FontStyle = FontStyles.Italic,
+                        Margin = new Thickness(12, 8, 12, 14)
+                    });
+                    return;
+                }
+
+                for (int childIndex = 0; childIndex < children.Count; childIndex++)
+                    childrenPanel.Children.Add(BuildHistoryRow(children[childIndex], childIndex, nested: true));
+            }
+
+            if (initiallyExpanded)
+                EnsureChildren();
+
+            var toggle = new Button
+            {
+                Content = row,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch,
+                Padding = new Thickness(0),
+                Style = GetHistoryRowButtonStyle(rowBackground),
+                ToolTip = "Kliknij, aby pokazać otwarcia EQ i zdarzenia tej sesji kopania."
+            };
+            toggle.Click += (_, __) =>
+            {
+                bool expand = childrenContainer.Visibility != Visibility.Visible;
+                if (expand)
+                    EnsureChildren();
+                childrenContainer.Visibility = expand ? Visibility.Visible : Visibility.Collapsed;
+                arrow.Text = expand ? "▼" : "▶";
+                if (expand)
+                    _expandedEntryKeys.Add(entryKey);
+                else
+                    _expandedEntryKeys.Remove(entryKey);
+            };
+
+            var content = new StackPanel();
+            content.Children.Add(toggle);
+            content.Children.Add(childrenContainer);
+            return new Border
+            {
+                Background = Brush(13, 23, 35),
+                BorderBrush = Brush(46, 168, 255),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 0, 10),
+                Child = content
+            };
+        }
+
+        private static string BuildMiningRunSummary(
+            MiningLogEntry run,
+            IReadOnlyList<MiningLogEntry> children)
+        {
+            int inventoryCount = children.Count(entry => entry.Kind == MiningLogKinds.InventorySession);
+            int automationCount = children.Count(entry => entry.Kind == MiningLogKinds.AutomationEvent);
+            int discardedItems = children
+                .Where(entry => entry.Kind == MiningLogKinds.InventorySession)
+                .Sum(entry => Math.Max(0, entry.ItemCount));
+            int discardedStacks = children
+                .Where(entry => entry.Kind == MiningLogKinds.InventorySession)
+                .Sum(MiningLogService.GetDiscardedStackCount);
+            string duration = run.CompletedAt.HasValue
+                ? FormatDuration(run.CompletedAt.Value - run.Timestamp)
+                : FormatDuration(DateTimeOffset.Now - run.Timestamp) + " (trwa)";
+            string configuration = string.IsNullOrWhiteSpace(run.Details) ? "Brak zapisanego opisu konfiguracji." : run.Details;
+            string ending = string.IsNullOrWhiteSpace(run.EndDetails) ? string.Empty : $"\nZakończenie: {run.EndDetails}";
+            return $"Start: {run.Timestamp.LocalDateTime:dd.MM.yyyy HH:mm:ss} • Czas: {duration} • "
+                + $"EQ: {inventoryCount:N0} • Automatyzacje: {automationCount:N0} • "
+                + $"Wyrzucono: {discardedItems:N0} szt. / {discardedStacks:N0} stos.\n{configuration}{ending}";
+        }
+
+        private UIElement BuildHistoryRow(MiningLogEntry entry, int index, bool nested)
+        {
+            bool isCobbleX = entry.Kind == MiningLogKinds.CobbleXCreated || entry.CobbleXCreated;
+            Brush rowBackground = index % 2 == 0 ? Brush(16, 26, 39) : Brush(19, 31, 46);
+            Brush rowBorder = entry.Kind == MiningLogKinds.AutomationEvent
+                ? Brush(144, 104, 201)
+                : isCobbleX
+                    ? Brush(194, 151, 66)
+                    : entry.Kind == MiningLogKinds.InventorySession
+                        ? Brush(48, 163, 146)
+                        : Brush(75, 98, 131);
+            Brush eventBrush = entry.Kind == MiningLogKinds.AutomationEvent
+                ? Brush(188, 145, 255)
+                : isCobbleX ? Brush(245, 200, 96) : Brush(127, 200, 255);
+            Brush statusBrush = GetStatusBrush(entry);
+
+            Grid row = BuildHistoryGrid();
+            row.Children.Add(BuildCell(entry.Timestamp.LocalDateTime.ToString("dd.MM.yyyy  HH:mm:ss"), 0, FontWeights.Normal, Brush(207, 219, 235)));
+            row.Children.Add(BuildCell(GetEventLabel(entry), 1, FontWeights.SemiBold, eventBrush, wrap: true));
+            row.Children.Add(BuildCell(GetCountLabel(entry), 2, FontWeights.Bold, Brush(56, 214, 180), wrap: true));
+            row.Children.Add(BuildCell(GetStatusLabel(entry), 3, FontWeights.SemiBold, statusBrush, wrap: true));
+
+            var arrow = new TextBlock
+            {
+                Text = "▶",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = Brush(127, 200, 255),
+                FontSize = 12
+            };
+            Grid.SetColumn(arrow, 4);
+            row.Children.Add(arrow);
+
+            string entryKey = GetEntryKey(entry);
+            bool initiallyExpanded = _expandedEntryKeys.Contains(entryKey);
+            arrow.Text = initiallyExpanded ? "▼" : "▶";
+            var content = new StackPanel();
+            // Szczegóły (lista przedmiotów, ustawienia, CobbleX) powstają przy pierwszym rozwinięciu.
+            UIElement? details = null;
+            void SetDetailsVisible(bool visible)
+            {
+                if (visible && details == null)
+                {
+                    details = BuildHistoryDetails(entry);
+                    content.Children.Add(details);
+                }
+                if (details != null)
+                    details.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            var toggle = new Button
+            {
+                Content = row,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch,
+                Padding = new Thickness(0),
+                Style = GetHistoryRowButtonStyle(rowBackground),
+                ToolTip = "Kliknij, aby rozwinąć lub zwinąć szczegóły tej sesji."
+            };
+            toggle.Click += (_, __) =>
+            {
+                bool expand = details?.Visibility != Visibility.Visible;
+                SetDetailsVisible(expand);
+                arrow.Text = expand ? "▼" : "▶";
+                if (expand)
+                    _expandedEntryKeys.Add(entryKey);
+                else
+                    _expandedEntryKeys.Remove(entryKey);
+            };
+
+            content.Children.Add(toggle);
+            SetDetailsVisible(initiallyExpanded);
+
+            return new Border
+            {
+                Background = Brush(12, 22, 34),
+                BorderBrush = rowBorder,
+                BorderThickness = new Thickness(2, 1, 1, 1),
+                CornerRadius = new CornerRadius(4),
+                Margin = nested ? new Thickness(10, 0, 0, 8) : new Thickness(0, 0, 0, 8),
+                Child = content
+            };
+        }
+
+        private static string GetEntryKey(MiningLogEntry entry)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.SessionId))
+                return entry.SessionId;
+
+            return string.Join("|",
+                entry.Kind ?? string.Empty,
+                entry.Timestamp.UtcDateTime.Ticks.ToString(CultureInfo.InvariantCulture),
+                entry.Count.ToString(CultureInfo.InvariantCulture),
+                entry.ItemCount.ToString(CultureInfo.InvariantCulture),
+                entry.Details ?? string.Empty);
+        }
+
+        private static Grid BuildHistoryGrid()
+        {
+            var grid = new Grid { MinHeight = 42 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+            return grid;
+        }
+
+        private static string GetEventLabel(MiningLogEntry entry)
+        {
+            if (entry.Kind == MiningLogKinds.MiningRun)
+                return string.IsNullOrWhiteSpace(entry.Owner) ? "Sesja kopania" : $"Sesja kopania • {entry.Owner}";
+            if (entry.Kind == MiningLogKinds.InventorySession)
+                return string.IsNullOrWhiteSpace(entry.Owner) ? "Skan EQ" : $"Skan EQ • {entry.Owner}";
+            if (entry.Kind == MiningLogKinds.AutomationEvent)
+            {
+                return entry.EventType switch
+                {
+                    MiningLogEventTypes.AutoReconnectStarted => "Auto Reconnect • start",
+                    MiningLogEventTypes.AutoReconnectFinished => "Auto Reconnect • wynik",
+                    MiningLogEventTypes.HealthCheckStarted => "Kontrola kopania • start",
+                    MiningLogEventTypes.HealthCheckFinished => "Kontrola kopania • wynik",
+                    MiningLogEventTypes.MissingPickaxeRecovery => "Brak kilofa • powrót do home",
+                    MiningLogEventTypes.MissingPickaxeRecoveryFinished => "Powrót do home • wynik",
+                    MiningLogEventTypes.EmergencyDamageSoundDetected => "Alarm obrażeń • awaryjne wyjście",
+                    MiningLogEventTypes.EmergencyProtectionStarted => "Ochrona awaryjna • start",
+                    MiningLogEventTypes.EmergencyReconnectJoined => "Ochrona awaryjna • dołączono",
+                    MiningLogEventTypes.EmergencyPickaxeDetected => "Kontrola kilofa • wykryto",
+                    MiningLogEventTypes.EmergencyPickaxeMissing => "Kontrola kilofa • brak",
+                    MiningLogEventTypes.EmergencyHomeCommandSent => "Ochrona awaryjna • home",
+                    MiningLogEventTypes.EmergencyMiningResumed => "Ochrona awaryjna • wznowiono kopanie",
+                    MiningLogEventTypes.EmergencyShutdown => "Ochrona awaryjna • zamknięcie programu",
+                    MiningLogEventTypes.EmergencyProtectionFinished => "Ochrona awaryjna • wynik",
+                    "gold-deposit" => "Wpłata złota",
+                    _ => "Zdarzenie automatyzacji"
+                };
+            }
+            return entry.Kind == MiningLogKinds.CobbleXCreated ? "Utworzono CobbleX" : "Stary wpis wyrzucania*";
+        }
+
+        private static string GetCountLabel(MiningLogEntry entry)
+        {
+            if (entry.Kind == MiningLogKinds.CobbleXCreated)
+                return $"{Math.Max(0, entry.Count):N0} szt.";
+            if (entry.Kind == MiningLogKinds.MiningRun)
+                return "Folder sesji";
+            if (entry.Kind == MiningLogKinds.AutomationEvent)
+                return "Automatyzacja";
+            if (entry.Kind == MiningLogKinds.InventorySession)
+            {
+                if (entry.Status == MiningLogStatuses.InProgress)
+                    return "W toku";
+
+                string result = $"{Math.Max(0, entry.ItemCount):N0} szt. / {Math.Max(0, entry.StackCount):N0} stos.";
+                return entry.CobbleXCreated ? result + "\n+ 1 CobbleX" : result;
+            }
+            if (entry.ItemCount > 0)
+                return $"{entry.ItemCount:N0} szt. / {MiningLogService.GetDiscardedStackCount(entry):N0} stos.";
+
+            return $"{MiningLogService.GetDiscardedStackCount(entry):N0} stos.\n(stary wpis*)";
+        }
+
+        private static string GetStatusLabel(MiningLogEntry entry)
+        {
+            if (entry.Kind == MiningLogKinds.MiningRun)
+            {
+                string duration = entry.CompletedAt.HasValue
+                    ? FormatDuration(entry.CompletedAt.Value - entry.Timestamp)
+                    : FormatDuration(DateTimeOffset.Now - entry.Timestamp);
+                return entry.Status switch
+                {
+                    MiningLogStatuses.Completed => $"Zakończono • {duration}",
+                    MiningLogStatuses.Aborted => $"Przerwano • {duration}",
+                    MiningLogStatuses.Interrupted => $"Niedokończono • {duration}",
+                    _ => $"Kopanie trwa • {duration}"
+                };
+            }
+            if (entry.Kind == MiningLogKinds.AutomationEvent)
+            {
+                if (entry.EventType is MiningLogEventTypes.AutoReconnectStarted
+                    or MiningLogEventTypes.HealthCheckStarted
+                    or MiningLogEventTypes.MissingPickaxeRecovery
+                    or MiningLogEventTypes.EmergencyProtectionStarted)
+                {
+                    return "Uruchomiono";
+                }
+                return entry.Status switch
+                {
+                    MiningLogStatuses.InProgress => "Rozpoczęto",
+                    MiningLogStatuses.Aborted => "Błąd / zatrzymano",
+                    MiningLogStatuses.Interrupted => "Niedokończono",
+                    _ => "Wykonano"
+                };
+            }
+            if (entry.Kind != MiningLogKinds.InventorySession)
+                return "Wpis starszego formatu";
+
+            return entry.Status switch
+            {
+                MiningLogStatuses.Completed when entry.RemainingStacks > 0 =>
+                    $"Nie wszystko wyrzucono • {FormatRemainingStacks(entry.RemainingStacks)} • {FormatDropPasses(entry.DropPasses)}",
+                MiningLogStatuses.Completed when entry.DropPasses == 0 => "Zakończono — EQ było czyste",
+                MiningLogStatuses.Completed => $"Zakończono — EQ wyczyszczone • {FormatDropPasses(entry.DropPasses)}",
+                MiningLogStatuses.Aborted => "Przerwano — sprawdź powód",
+                MiningLogStatuses.Interrupted => "Niedokończono — program lub makro zatrzymane",
+                _ => "Auto EQ w toku"
+            };
+        }
+
+        private static string FormatRemainingStacks(int count)
+        {
+            count = Math.Max(0, count);
+            if (count == 1)
+                return "pozostał 1 stos";
+            if (UsesPolishPaucalForm(count))
+                return $"pozostały {count:N0} stosy";
+            return $"pozostało {count:N0} stosów";
+        }
+
+        private static string FormatDropPasses(int count)
+        {
+            count = Math.Max(0, count);
+            if (count == 1)
+                return "1 przebieg";
+            if (UsesPolishPaucalForm(count))
+                return $"{count:N0} przebiegi";
+            return $"{count:N0} przebiegów";
+        }
+
+        private static string FormatDropPassesAfter(int count)
+        {
+            count = Math.Max(0, count);
+            return count == 1 ? "1 przebiegu" : $"{count:N0} przebiegach";
+        }
+
+        private static bool UsesPolishPaucalForm(int count)
+        {
+            int lastTwoDigits = count % 100;
+            int lastDigit = count % 10;
+            return lastDigit is >= 2 and <= 4 && lastTwoDigits is not (>= 12 and <= 14);
+        }
+
+        private static Brush GetStatusBrush(MiningLogEntry entry)
+        {
+            if (entry.Kind == MiningLogKinds.MiningRun || entry.Kind == MiningLogKinds.AutomationEvent)
+            {
+                return entry.Status switch
+                {
+                    MiningLogStatuses.Completed => Brush(56, 214, 180),
+                    MiningLogStatuses.InProgress => Brush(251, 191, 36),
+                    _ => Brush(255, 107, 107)
+                };
+            }
+            if (entry.Kind != MiningLogKinds.InventorySession)
+                return Brush(146, 166, 193);
+            if (entry.Status == MiningLogStatuses.Completed && entry.RemainingStacks == 0)
+                return Brush(56, 214, 180);
+            if (entry.Status == MiningLogStatuses.InProgress || entry.RemainingStacks > 0)
+                return Brush(251, 191, 36);
+            return Brush(255, 107, 107);
+        }
+
+        private static UIElement BuildHistoryDetails(MiningLogEntry entry)
+        {
+            bool isSession = entry.Kind == MiningLogKinds.InventorySession;
+            bool isAutomation = entry.Kind == MiningLogKinds.AutomationEvent;
+            Brush detailsBorder = isAutomation
+                ? Brush(104, 77, 148)
+                : isSession
+                    ? Brush(39, 122, 113)
+                    : Brush(58, 82, 112);
+            var panel = new StackPanel();
+            panel.Children.Add(new TextBlock
+            {
+                Text = isSession
+                    ? "SZCZEGÓŁY OTWARCIA EQ"
+                    : isAutomation
+                        ? "SZCZEGÓŁY AUTOMATYZACJI"
+                        : "SZCZEGÓŁY STAREGO WPISU",
+                FontSize = 10,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brush(127, 200, 255),
+                Margin = new Thickness(0, 0, 0, 9)
+            });
+
+            AddDetailLine(
+                panel,
+                isSession ? "Otwarcie EQ" : "Data zdarzenia",
+                entry.Timestamp.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss"),
+                Brush(207, 219, 235));
+            if (entry.CompletedAt.HasValue)
+            {
+                AddDetailLine(panel, "Zakończenie", entry.CompletedAt.Value.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss"), Brush(207, 219, 235));
+                TimeSpan duration = entry.CompletedAt.Value - entry.Timestamp;
+                AddDetailLine(panel, "Czas sesji", FormatDuration(duration), Brush(245, 200, 96));
+            }
+            if (!string.IsNullOrWhiteSpace(entry.Owner))
+                AddDetailLine(panel, "Tryb", entry.Owner, Brush(127, 200, 255));
+            AddDetailLine(panel, isSession ? "Wynik Auto EQ" : "Status", GetStatusLabel(entry), GetStatusBrush(entry));
+
+            if (isSession)
+            {
+                string cleanupMode = entry.CleanupMode switch
+                {
+                    "all-except-cobblestone" => "Wszystko poza cobblestone",
+                    "selected-items" => "Tylko wybrane typy",
+                    _ => "Starsza sesja — brak zapisanej konfiguracji"
+                };
+                AddDetailLine(panel, "Tryb wyrzucania", cleanupMode, Brush(245, 200, 96));
+                if (entry.SelectedSlots is { Count: > 0 })
+                    AddDetailLine(panel, "Skanowane sloty", string.Join(", ", entry.SelectedSlots), Brush(127, 200, 255));
+                if (entry.CleanupMode == "selected-items")
+                {
+                    AddDetailLine(
+                        panel,
+                        "Wybrane przedmioty",
+                        entry.SelectedItemTypes is { Count: > 0 }
+                            ? string.Join(", ", entry.SelectedItemTypes)
+                            : "Brak zapisanej listy",
+                        Brush(127, 200, 255));
+                }
+                AddDetailLine(panel, "CobbleX włączony", entry.CobbleXEnabled ? "Tak" : "Nie", entry.CobbleXEnabled ? Brush(56, 214, 180) : Brush(146, 166, 193));
+                AddDetailLine(
+                    panel,
+                    "Jedzenie po EQ",
+                    entry.EatAfterCleanup
+                        ? entry.EatingCompleted ? "Wykonano — slot 2, PPM 4 s, powrót na slot 1" : "Włączone, ale nie zakończono"
+                        : "Wyłączone",
+                    entry.EatingCompleted ? Brush(56, 214, 180) : entry.EatAfterCleanup ? Brush(251, 191, 36) : Brush(146, 166, 193));
+                AddDetailLine(panel, "Przebiegi EQ", FormatDropPasses(entry.DropPasses), Brush(127, 200, 255));
+                AddDetailLine(
+                    panel,
+                    "Wynik wyrzucania",
+                    entry.RemainingStacks > 0 ? FormatRemainingStacks(entry.RemainingStacks) : "Brak pozostałych stosów — EQ czyste",
+                    entry.RemainingStacks > 0 ? Brush(251, 191, 36) : Brush(56, 214, 180));
+                if (entry.RemainingStacks > 0)
+                {
+                    AddDetailLine(
+                        panel,
+                        "Dlaczego przerwano wyrzucanie",
+                        $"Po {FormatDropPassesAfter(entry.DropPasses)} skaner nadal wykrywał przedmioty do wyrzucenia. Program zamknął EQ, aby uniknąć nieskończonej pętli.",
+                        Brush(251, 191, 36));
+                }
+
+                panel.Children.Add(new Border
+                {
+                    BorderBrush = Brush(48, 68, 95),
+                    BorderThickness = new Thickness(0, 1, 0, 0),
+                    Margin = new Thickness(0, 10, 0, 10)
+                });
+                panel.Children.Add(new TextBlock
+                {
+                    Text = "WYRZUCONE PRZEDMIOTY",
+                    FontSize = 10,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Brush(146, 166, 193),
+                    Margin = new Thickness(0, 0, 0, 7)
+                });
+
+                IReadOnlyList<MiningLogItemDetail> items = entry.Items ?? new List<MiningLogItemDetail>();
+                if (items.Count == 0)
+                {
+                    panel.Children.Add(new TextBlock
+                    {
+                        Text = "Nie wyrzucono żadnych oznaczonych przedmiotów.",
+                        Foreground = Brush(146, 166, 193),
+                        FontStyle = FontStyles.Italic,
+                        FontSize = 11,
+                        Margin = new Thickness(0, 0, 0, 5)
+                    });
+                }
+                else
+                {
+                    for (int index = 0; index < items.Count; index++)
+                    {
+                        MiningLogItemDetail item = items[index];
+                        var itemGrid = new Grid();
+                        itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                        itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                        itemGrid.Children.Add(new TextBlock
+                        {
+                            Text = string.IsNullOrWhiteSpace(item.Label) ? item.ItemId : item.Label,
+                            Foreground = Brush(127, 200, 255),
+                            FontWeight = FontWeights.SemiBold,
+                            FontSize = 11
+                        });
+                        var itemCount = new TextBlock
+                        {
+                            Text = $"{Math.Max(0, item.ItemCount):N0} szt.  •  {Math.Max(0, item.StackCount):N0} stos.",
+                            Foreground = Brush(56, 214, 180),
+                            FontWeight = FontWeights.Bold,
+                            FontSize = 11
+                        };
+                        Grid.SetColumn(itemCount, 1);
+                        itemGrid.Children.Add(itemCount);
+                        panel.Children.Add(new Border
+                        {
+                            Background = index % 2 == 0 ? Brush(19, 31, 46) : Brush(22, 37, 54),
+                            BorderBrush = Brush(48, 68, 95),
+                            BorderThickness = new Thickness(1),
+                            CornerRadius = new CornerRadius(3),
+                            Padding = new Thickness(10, 7, 10, 7),
+                            Margin = new Thickness(0, 0, 0, 5),
+                            Child = itemGrid
+                        });
+                    }
+                }
+
+                string cobbleXValue = entry.CobbleXCreated
+                    ? $"Utworzono • komenda: {(string.IsNullOrWhiteSpace(entry.CobbleXCommand) ? "brak" : entry.CobbleXCommand)}"
+                    : "Nie utworzono";
+                AddDetailLine(
+                    panel,
+                    "CobbleX",
+                    $"{cobbleXValue} • Cobble 64: {Math.Max(0, entry.FullCobblestoneStacks)}/{Math.Max(0, entry.RequiredCobblestoneStacks)}",
+                    entry.CobbleXCreated ? Brush(245, 200, 96) : Brush(146, 166, 193));
+            }
+
+            if (!string.IsNullOrWhiteSpace(entry.Details))
+                AddDetailLine(panel, "Wynik", entry.Details, Brush(207, 219, 235));
+
+            return new Border
+            {
+                Background = Brush(11, 20, 31),
+                BorderBrush = detailsBorder,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(4),
+                Margin = new Thickness(8, 0, 8, 8),
+                Padding = new Thickness(18, 12, 18, 14),
+                Child = panel
+            };
+        }
+
+        private static void AddDetailLine(StackPanel panel, string label, string value, Brush valueBrush)
+        {
+            var text = new TextBlock
+            {
+                FontSize = 11,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 5)
+            };
+            text.Inlines.Add(new Run(label + ": ")
+            {
+                Foreground = Brush(146, 166, 193),
+                FontWeight = FontWeights.SemiBold
+            });
+            text.Inlines.Add(new Run(value)
+            {
+                Foreground = valueBrush,
+                FontWeight = FontWeights.SemiBold
+            });
+            panel.Children.Add(text);
+        }
+
+        private static string FormatDuration(TimeSpan duration)
+        {
+            if (duration < TimeSpan.Zero)
+                duration = TimeSpan.Zero;
+            return duration.TotalHours >= 1
+                ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
+                : $"{duration.Minutes:00}:{duration.Seconds:00}";
+        }
+
+        // Jeden styl na kolor tła wiersza — budowanie nowego stylu z szablonem dla każdego
+        // z setek wierszy było jedną z przyczyn lagu przy wejściu w Logi.
+        private static readonly Dictionary<Color, Style> HistoryRowStyles = new();
+
+        private static Style GetHistoryRowButtonStyle(Brush normalBackground)
+        {
+            Color key = normalBackground is SolidColorBrush solid ? solid.Color : Colors.Transparent;
+            if (!HistoryRowStyles.TryGetValue(key, out Style? style))
+            {
+                style = CreateHistoryRowButtonStyle(normalBackground);
+                style.Seal();
+                HistoryRowStyles[key] = style;
+            }
+            return style;
+        }
+
+        private static Style CreateHistoryRowButtonStyle(Brush normalBackground)
+        {
+            var style = new Style(typeof(Button));
+            style.Setters.Add(new Setter(Control.ForegroundProperty, Brush(232, 238, 248)));
+            style.Setters.Add(new Setter(Control.BackgroundProperty, normalBackground));
+            style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
+            style.Setters.Add(new Setter(Control.CursorProperty, Cursors.Hand));
+            style.Setters.Add(new Setter(FrameworkElement.FocusVisualStyleProperty, null));
+
+            var template = new ControlTemplate(typeof(Button));
+            var border = new FrameworkElementFactory(typeof(Border));
+            border.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+            border.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            presenter.SetValue(ContentPresenter.ContentProperty, new TemplateBindingExtension(ContentControl.ContentProperty));
+            presenter.SetValue(ContentPresenter.ContentTemplateProperty, new TemplateBindingExtension(ContentControl.ContentTemplateProperty));
+            presenter.SetValue(HorizontalAlignmentProperty, HorizontalAlignment.Stretch);
+            presenter.SetValue(VerticalAlignmentProperty, VerticalAlignment.Stretch);
+            border.AppendChild(presenter);
+            template.VisualTree = border;
+
+            var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+            hoverTrigger.Setters.Add(new Setter(Control.BackgroundProperty, Brush(27, 45, 65)));
+            template.Triggers.Add(hoverTrigger);
+
+            var pressedTrigger = new Trigger { Property = ButtonBase.IsPressedProperty, Value = true };
+            pressedTrigger.Setters.Add(new Setter(Control.BackgroundProperty, Brush(22, 58, 86)));
+            template.Triggers.Add(pressedTrigger);
+
+            style.Setters.Add(new Setter(Control.TemplateProperty, template));
+            return style;
+        }
+
+        private static TextBlock BuildCell(string text, int column, FontWeight weight, Brush foreground, bool wrap = false)
+        {
+            var block = new TextBlock
+            {
+                Text = text,
+                Margin = new Thickness(12, 9, 12, 9),
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize = 12.5,
+                FontWeight = weight,
+                Foreground = foreground,
+                TextWrapping = wrap ? TextWrapping.Wrap : TextWrapping.NoWrap,
+                TextTrimming = wrap ? TextTrimming.None : TextTrimming.CharacterEllipsis
+            };
+            Grid.SetColumn(block, column);
+            return block;
+        }
+
+        // Czyści historię oglądanego konta. Dziennik innego konta czyści jego własny Kopacz
+        // (trzyma go w pamięci i nadpisałby zmieniony plik); zamknięte konto czyścimy w pliku.
+        private async Task ClearHistoryAsync()
+        {
+            string profileId = _viewedProfileId;
+            bool own = string.Equals(profileId, _currentProfileId, StringComparison.OrdinalIgnoreCase);
+            string accountName = new MinerAccountStore().Load()
+                .FirstOrDefault(profile => string.Equals(profile.Id, profileId, StringComparison.OrdinalIgnoreCase))?.Name
+                ?? profileId;
+            var confirmation = new DarkLogDialog(
+                "Wyczyść logi kopania",
+                $"Usunąć całą historię kopania konta „{accountName}”? Trwająca sesja zostanie zachowana. Tej operacji nie można cofnąć.",
+                confirmText: "Usuń historię",
+                showCancel: true)
+            {
+                Owner = HostWindow
+            };
+            if (confirmation.ShowDialog() != true)
+                return;
+
+            _clearHistoryButton.IsEnabled = false;
+            string? error = null;
+            if (own)
+            {
+                if (!_logService.Clear(out string clearError))
+                    error = clearError;
+            }
+            else
+            {
+                MinerRemotePipeResponse? response = null;
+                try
+                {
+                    response = await MinerRemoteControlClient.ExecuteAsync(profileId, "clear-logs");
+                }
+                catch (Exception ex) when (ex is IOException or TimeoutException or OperationCanceledException or UnauthorizedAccessException or InvalidOperationException or System.Text.Json.JsonException)
+                {
+                    // Kopacz tego konta nie działa — nikt nie trzyma jego dziennika w pamięci.
+                }
+
+                if (response == null)
+                {
+                    if (!MiningLogService.OpenReadOnly(profileId).Clear(out string clearError))
+                        error = clearError;
+                }
+                else if (!response.Success)
+                {
+                    error = response.Message;
+                }
+
+                // Podgląd czyta plik od nowa, żeby pokazać stan po czyszczeniu.
+                if (string.Equals(_viewedProfileId, profileId, StringComparison.OrdinalIgnoreCase))
+                    _logService = MiningLogService.OpenReadOnly(profileId);
+            }
+
+            if (error != null)
+                ShowDarkInfo("Błąd", "Nie udało się wyczyścić historii: " + error);
+            AppLog.Info("Logi", error == null ? $"Wyczyszczono historię kopania konta „{accountName}”." : $"Czyszczenie historii konta „{accountName}” nie powiodło się: {error}");
+            _expandedEntryKeys.Clear();
+            RefreshView();
+            await RefreshAccountsAsync();
+        }
+
+        private void SaveReport()
+        {
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var dialog = new SaveFileDialog
+            {
+                Title = "Zapisz raport z logów kopania",
+                InitialDirectory = Directory.Exists(desktop) ? desktop : null,
+                FileName = $"MinecraftHelper-raport-kopania-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.csv",
+                DefaultExt = ".csv",
+                AddExtension = true,
+                Filter = "Raport CSV (*.csv)|*.csv|Raport tekstowy (*.txt)|*.txt",
+                FilterIndex = 1,
+                OverwritePrompt = true
+            };
+            if (dialog.ShowDialog(HostWindow) != true)
+                return;
+
+            try
+            {
+                string report = Path.GetExtension(dialog.FileName).Equals(".txt", StringComparison.OrdinalIgnoreCase)
+                    ? BuildTextReport(_visibleEntries)
+                    : BuildCsvReport(_visibleEntries);
+                File.WriteAllText(dialog.FileName, report, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+                ShowDarkInfo(
+                    "Raport zapisany",
+                    $"Zapisano {_visibleEntries.Count:N0} widocznych wpisów do:\n{dialog.FileName}");
+            }
+            catch (Exception ex)
+            {
+                ShowDarkInfo("Błąd zapisu", "Nie udało się zapisać raportu: " + ex.Message);
+            }
+        }
+
+        private string BuildCsvReport(IReadOnlyList<MiningLogEntry> entries)
+        {
+            (int cobbleX, int discardedItems, int exactStacks, int legacyStacks) = CalculateReportTotals(entries);
+            var builder = new StringBuilder();
+            builder.AppendLine("Raport Minecraft Helper - logi kopania");
+            builder.AppendLine($"Wygenerowano;{EscapeCsv(DateTime.Now.ToString("dd.MM.yyyy HH:mm:ss"))}");
+            builder.AppendLine($"Widoczne wpisy;{entries.Count}");
+            builder.AppendLine($"Sesje kopania;{entries.Count(entry => entry.Kind == MiningLogKinds.MiningRun)}");
+            builder.AppendLine($"Zdarzenia automatyzacji;{entries.Count(entry => entry.Kind == MiningLogKinds.AutomationEvent)}");
+            builder.AppendLine($"Utworzone CobbleX;{cobbleX}");
+            builder.AppendLine($"Wyrzucone przedmioty (dokładne);{discardedItems}");
+            builder.AppendLine($"Wyrzucone stosy (dokładne);{exactStacks}");
+            builder.AppendLine($"Stare stosy bez liczby sztuk;{legacyStacks}");
+            builder.AppendLine();
+            builder.AppendLine("Data i godzina;ID sesji kopania;Rodzaj;Kopacz / właściciel;Zdarzenie;Status;Sztuki;Stosy;CobbleX;Szczegóły");
+            foreach (MiningLogEntry entry in entries)
+            {
+                bool isLegacyCobbleX = entry.Kind == MiningLogKinds.CobbleXCreated;
+                string items = isLegacyCobbleX
+                    ? string.Empty
+                    : entry.ItemCount > 0 ? entry.ItemCount.ToString() : "0";
+                string stacks = isLegacyCobbleX
+                    ? string.Empty
+                    : MiningLogService.GetDiscardedStackCount(entry).ToString();
+                string cobbleXValue = isLegacyCobbleX
+                    ? Math.Max(0, entry.Count).ToString()
+                    : entry.CobbleXCreated ? "1" : "0";
+                string miningRunId = entry.Kind == MiningLogKinds.MiningRun ? entry.SessionId : entry.MiningRunId;
+                builder.Append(EscapeCsv(entry.Timestamp.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss"))).Append(';')
+                    .Append(EscapeCsv(miningRunId)).Append(';')
+                    .Append(EscapeCsv(entry.Kind)).Append(';')
+                    .Append(EscapeCsv(entry.Owner)).Append(';')
+                    .Append(EscapeCsv(GetEventLabel(entry))).Append(';')
+                    .Append(EscapeCsv(GetStatusLabel(entry))).Append(';')
+                    .Append(EscapeCsv(items)).Append(';')
+                    .Append(EscapeCsv(stacks)).Append(';')
+                    .Append(EscapeCsv(cobbleXValue)).Append(';')
+                    .AppendLine(EscapeCsv(BuildReportDetails(entry)));
+            }
+
+            return builder.ToString();
+        }
+
+        private string BuildTextReport(IReadOnlyList<MiningLogEntry> entries)
+        {
+            (int cobbleX, int discardedItems, int exactStacks, int legacyStacks) = CalculateReportTotals(entries);
+            var builder = new StringBuilder();
+            builder.AppendLine("MINECRAFT HELPER - RAPORT Z LOGÓW KOPANIA");
+            builder.AppendLine($"Wygenerowano: {DateTime.Now:dd.MM.yyyy HH:mm:ss}");
+            builder.AppendLine($"Widoczne wpisy: {entries.Count:N0}");
+            builder.AppendLine($"Sesje kopania: {entries.Count(entry => entry.Kind == MiningLogKinds.MiningRun):N0}");
+            builder.AppendLine($"Zdarzenia automatyzacji: {entries.Count(entry => entry.Kind == MiningLogKinds.AutomationEvent):N0}");
+            builder.AppendLine($"Utworzone CobbleX: {cobbleX:N0}");
+            builder.AppendLine($"Wyrzucone przedmioty: {discardedItems:N0} szt. z {exactStacks:N0} stosów");
+            if (legacyStacks > 0)
+                builder.AppendLine($"Starsze dane: {legacyStacks:N0} stosów bez zapisanej liczby sztuk");
+            builder.AppendLine();
+
+            foreach (MiningLogEntry entry in entries)
+            {
+                string miningRunId = entry.Kind == MiningLogKinds.MiningRun ? entry.SessionId : entry.MiningRunId;
+                builder.Append('[').Append(entry.Timestamp.LocalDateTime.ToString("dd.MM.yyyy HH:mm:ss")).Append("] ")
+                    .Append(GetEventLabel(entry)).Append(" | ")
+                    .Append("Sesja: ").Append(string.IsNullOrWhiteSpace(miningRunId) ? "starszy wpis" : miningRunId).Append(" | ")
+                    .Append(GetStatusLabel(entry)).Append(" | ")
+                    .Append(GetCountLabel(entry).Replace('\n', ' ')).Append(" | ")
+                    .Append(BuildReportDetails(entry));
+                builder.AppendLine();
+            }
+
+            return builder.ToString();
+        }
+
+        private static (int CobbleX, int Items, int ExactStacks, int LegacyStacks) CalculateReportTotals(
+            IReadOnlyList<MiningLogEntry> entries)
+        {
+            int cobbleX = entries
+                .Sum(entry => entry.Kind == MiningLogKinds.CobbleXCreated
+                    ? Math.Max(0, entry.Count)
+                    : entry.Kind == MiningLogKinds.InventorySession && entry.CobbleXCreated ? 1 : 0);
+            int items = entries
+                .Where(entry => entry.Kind is MiningLogKinds.ItemsDiscarded or MiningLogKinds.InventorySession)
+                .Sum(entry => Math.Max(0, entry.ItemCount));
+            int exactStacks = entries
+                .Where(entry => (entry.Kind == MiningLogKinds.ItemsDiscarded && entry.ItemCount > 0)
+                    || entry.Kind == MiningLogKinds.InventorySession)
+                .Sum(MiningLogService.GetDiscardedStackCount);
+            int legacyStacks = entries
+                .Where(entry => entry.Kind == MiningLogKinds.ItemsDiscarded && entry.ItemCount <= 0)
+                .Sum(MiningLogService.GetDiscardedStackCount);
+            return (cobbleX, items, exactStacks, legacyStacks);
+        }
+
+        private static string BuildReportDetails(MiningLogEntry entry)
+        {
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(entry.Details))
+                parts.Add(entry.Details.Trim());
+            if (!string.IsNullOrWhiteSpace(entry.EndDetails))
+                parts.Add("Zakończenie: " + entry.EndDetails.Trim());
+            if (entry.Items is { Count: > 0 })
+            {
+                parts.Add("Przedmioty: " + string.Join(", ", entry.Items.Select(item =>
+                    $"{(string.IsNullOrWhiteSpace(item.Label) ? item.ItemId : item.Label)}: {Math.Max(0, item.ItemCount)} szt. / {Math.Max(0, item.StackCount)} stos.")));
+            }
+            if (entry.Kind == MiningLogKinds.InventorySession)
+            {
+                string cleanupMode = entry.CleanupMode == "all-except-cobblestone"
+                    ? "wszystko poza cobblestone"
+                    : entry.CleanupMode == "selected-items"
+                        ? "wybrane typy"
+                        : "brak danych (stary wpis)";
+                parts.Add($"Tryb wyrzucania: {cleanupMode}.");
+                if (entry.SelectedSlots is { Count: > 0 })
+                    parts.Add("Sloty: " + string.Join(",", entry.SelectedSlots) + ".");
+                if (entry.SelectedItemTypes is { Count: > 0 })
+                    parts.Add("Wybrane typy: " + string.Join(", ", entry.SelectedItemTypes) + ".");
+                parts.Add(entry.EatAfterCleanup
+                    ? entry.EatingCompleted ? "Jedzenie po EQ: wykonano." : "Jedzenie po EQ: nie zakończono."
+                    : "Jedzenie po EQ: wyłączone.");
+                parts.Add($"Przebiegi: {Math.Max(0, entry.DropPasses)}; pozostało: {Math.Max(0, entry.RemainingStacks)} stos.");
+                parts.Add(entry.CobbleXCreated
+                    ? $"CobbleX: utworzono ({entry.CobbleXCommand}); Cobble 64: {entry.FullCobblestoneStacks}/{entry.RequiredCobblestoneStacks}"
+                    : $"CobbleX: nie utworzono; Cobble 64: {entry.FullCobblestoneStacks}/{entry.RequiredCobblestoneStacks}");
+            }
+            else if (entry.Kind == MiningLogKinds.MiningRun && entry.CompletedAt.HasValue)
+            {
+                parts.Add($"Czas sesji: {FormatDuration(entry.CompletedAt.Value - entry.Timestamp)}.");
+            }
+            else if (entry.Kind == MiningLogKinds.AutomationEvent && !string.IsNullOrWhiteSpace(entry.EventType))
+            {
+                parts.Add($"Typ automatyzacji: {entry.EventType}.");
+            }
+
+            return string.Join(" ", parts);
+        }
+
+        private static string EscapeCsv(string? value)
+        {
+            string text = value ?? string.Empty;
+            return '"' + text.Replace("\"", "\"\"") + '"';
+        }
+
+        private void ShowDarkInfo(string title, string message)
+        {
+            var dialog = new DarkLogDialog(title, message, confirmText: "OK", showCancel: false)
+            {
+                Owner = HostWindow
+            };
+            dialog.ShowDialog();
+        }
+
+        private sealed class DarkLogDialog : Window
+        {
+            public DarkLogDialog(string title, string message, string confirmText, bool showCancel)
+            {
+                Title = title;
+                Width = 500;
+                MinHeight = 190;
+                SizeToContent = SizeToContent.Height;
+                ResizeMode = ResizeMode.NoResize;
+                WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                ShowInTaskbar = false;
+                GlassChrome.Apply(this);
+
+                var root = new Grid { Margin = new Thickness(20) };
+                root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var heading = new TextBlock
+                {
+                    Text = title,
+                    FontSize = 18,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Brush(127, 200, 255),
+                    Margin = new Thickness(0, 0, 0, 12)
+                };
+                root.Children.Add(heading);
+
+                var messageBorder = new Border
+                {
+                    Background = Brush(22, 31, 43),
+                    BorderBrush = Brush(75, 98, 131),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(5),
+                    Padding = new Thickness(14),
+                    Child = new TextBlock
+                    {
+                        Text = message,
+                        TextWrapping = TextWrapping.Wrap,
+                        Foreground = Brush(207, 219, 235),
+                        FontSize = 12
+                    }
+                };
+                Grid.SetRow(messageBorder, 1);
+                root.Children.Add(messageBorder);
+
+                var buttons = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    Margin = new Thickness(0, 16, 0, 0)
+                };
+                if (showCancel)
+                {
+                    Button cancel = BuildButton("Anuluj", primary: false);
+                    cancel.Click += (_, __) => DialogResult = false;
+                    buttons.Children.Add(cancel);
+                }
+
+                Button confirm = BuildButton(confirmText, primary: true);
+                confirm.Margin = showCancel ? new Thickness(10, 0, 0, 0) : new Thickness(0);
+                confirm.Click += (_, __) => DialogResult = true;
+                buttons.Children.Add(confirm);
+                Grid.SetRow(buttons, 2);
+                root.Children.Add(buttons);
+
+                Content = root;
+                PreviewKeyDown += (_, e) =>
+                {
+                    if (e.Key == Key.Escape)
+                    {
+                        DialogResult = false;
+                        e.Handled = true;
+                    }
+                };
+            }
+        }
+
+        private static Button BuildButton(string text, bool primary)
+        {
+            var button = new Button { Content = text, MinWidth = 110 };
+            if (primary)
+                button.Style = GlassChrome.GetStyle("GlassPrimaryButton");
+            return button;
+        }
+
+        // Kolory starego, ciemnego okna logów zamieniane na odpowiedniki glass.
+        private static SolidColorBrush Brush(byte red, byte green, byte blue) => GlassPalette.MapLegacyBrush(red, green, blue);
+    }
+}

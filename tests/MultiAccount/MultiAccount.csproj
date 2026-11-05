@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../MinecraftHelper/Services/MinerProfileId.cs" Link="MinerProfileId.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerRemoteCommands.cs" Link="MinerRemoteCommands.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerGameWindowClaim.cs" Link="MinerGameWindowClaim.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerInventorySnapshot.cs" Link="MinerInventorySnapshot.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerWindowLayout.cs" Link="MinerWindowLayout.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerLayoutSlotLease.cs" Link="MinerLayoutSlotLease.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerHudLayout.cs" Link="MinerHudLayout.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerWorkspaceSelection.cs" Link="MinerWorkspaceSelection.cs" />
+    <Compile Include="../../MinecraftHelper/Services/MinerRemoteControlPipe.cs" Link="MinerRemoteControlPipe.cs" />
+    <Compile Include="../../MinecraftHelper/Services/AppLog.cs" Link="AppLog.cs" />
+    <Compile Include="../../MinecraftHelper/Services/BackgroundCursorPolicy.cs" Link="BackgroundCursorPolicy.cs" />
+    <Compile Include="../../MinecraftHelper/Services/BackgroundCursorStateStore.cs" Link="BackgroundCursorStateStore.cs" />
+  </ItemGroup>
+</Project>
+

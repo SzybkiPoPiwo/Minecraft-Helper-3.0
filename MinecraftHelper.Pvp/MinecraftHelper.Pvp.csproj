@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>MinecraftHelper.AutoClicker</AssemblyName>
+    <RootNamespace>MinecraftHelper</RootNamespace>
+    <Product>Minecraft Helper Auto Clicker</Product>
+    <ApplicationIcon>..\MinecraftHelper\Assets\autoclicker.ico</ApplicationIcon>
+    <Version>3.0</Version>
+    <AssemblyVersion>3.0.0.0</AssemblyVersion>
+    <FileVersion>3.0.0.0</FileVersion>
+    <InformationalVersion>3.0-autoclicker</InformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\MinecraftHelper\BindConflictDialogWindow.cs" Link="Windows\BindConflictDialogWindow.cs" />
+    <Compile Include="..\MinecraftHelper\ReleaseNotesCatalog.cs" Link="ReleaseNotesCatalog.cs" />
+    <Compile Include="..\MinecraftHelper\Services\NativeInput.cs" Link="Services\NativeInput.cs" />
+    <Compile Include="..\MinecraftHelper\Services\UpdateCheckService.cs" Link="Services\UpdateCheckService.cs" />
+    <Compile Include="..\MinecraftHelper\OverlayHudWindow.cs" Link="OverlayHudWindow.cs" />
+    <Compile Include="..\MinecraftHelper\GlassTray.cs" Link="GlassTray.cs" />
+    <Compile Include="..\MinecraftHelper\UpdateAvailableWindow.cs" Link="Windows\UpdateAvailableWindow.cs" />
+    <Compile Include="..\MinecraftHelper\Themes\GlassPalette.cs" Link="Themes\GlassPalette.cs" />
+    <Page Include="..\MinecraftHelper\Themes\GlassTheme.xaml" Link="Themes\GlassTheme.xaml" />
+    <Page Include="..\MinecraftHelper\Themes\GlassAccentKoral.xaml" Link="Themes\GlassAccentKoral.xaml" />
+    <Page Include="..\MinecraftHelper\Themes\GlassAccentIris.xaml" Link="Themes\GlassAccentIris.xaml" />
+    <Page Include="..\MinecraftHelper\Themes\GlassAccentOcean.xaml" Link="Themes\GlassAccentOcean.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\MinecraftHelper\Assets\autoclicker.ico" Link="Assets\autoclicker.ico" />
+  </ItemGroup>
+
+</Project>
+
