@@ -34,14 +34,38 @@ SetupIconFile=installer.ico
 UninstallDisplayIcon={app}\MinecraftHelper.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
-WizardStyle=modern
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
+; Wygląd glassmorphism jak w Kopaczu i Auto Clickerze: nasycone plamy (fiolet, iris, róż,
+; błękit) pod wszystkimi stronami, przykryte jasną mgłą, żeby tekst i kontrolki były czytelne
+; (Inno nie rozmywa tła na żywo). Na powitaniu i zakończeniu ikona na szklanej karcie
+; z prawdziwym rozmyciem, wtopionej w obraz; mała ikona w rogu pozostałych stron.
+WizardStyle=modern windows11 hidebevels
+WizardBackColor=#F3F2FC
+WizardBackImageFile=wizard-back.png
+WizardBackImageOpacity=150
+; Ten sam tekst co ..\LICENSE (GPL-3.0), tylko sformatowany do RTF: nagłówki i akapity
+; bez ręcznego łamania linii, czytelne w oknie instalatora.
+LicenseFile=license.rtf
+WizardImageFile=wizard-side.png,wizard-side@2x.png
+WizardSmallImageFile=wizard-small.png,wizard-small@2x.png
+DisableWelcomePage=no
+ShowLanguageDialog=auto
+
 [Languages]
 Name: "polish"; MessagesFile: "compiler:Languages\Polish.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+polish.WelcomeLabel1=Witaj w instalatorze Minecraft Helper 3.0
+polish.WelcomeLabel2=Zainstalujesz Auto Clicker do PVP i Kopacza do kopania z Auto EQ, ochroną i botem Discord — razem albo osobno.%n%nUstawienia, bindy i konta z poprzednich wersji zostaną zachowane. Zanim przejdziesz dalej, zamknij obie aplikacje z menu ikony w zasobniku.
+polish.LicenseLabel3=Minecraft Helper jest wolnym oprogramowaniem na licencji GNU GPL 3.0: możesz go używać, zmieniać i rozpowszechniać, a własna wersja musi mieć otwarty kod na tej samej licencji. Program jest dostarczany bez gwarancji. Pełny tekst licencji (po angielsku) znajduje się poniżej.
+polish.FinishedHeadingLabel=Minecraft Helper jest gotowy
+polish.FinishedLabel=Programy zostały zainstalowane i znajdziesz je w menu Start.%n%nPierwsze kroki: uruchom Minecraft 1.8.8, wybierz grę w programie i zajrzyj pod przyciski „?”.
+english.WelcomeLabel1=Welcome to Minecraft Helper 3.0 Setup
+english.WelcomeLabel2=This will install the PVP Auto Clicker and the Kopacz miner with Auto EQ, protection and a Discord bot — together or separately.%n%nSettings from previous versions are kept. Close both apps from their tray icon menu before you continue.
 
 [Types]
 Name: "full"; Description: "Obie aplikacje (zalecane)"
