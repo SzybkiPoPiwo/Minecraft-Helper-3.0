@@ -16,8 +16,8 @@
         Loaded="Window_Loaded"
         Closed="Window_Closed">
     <Grid Margin="16">
-        <Border CornerRadius="26" Background="{DynamicResource GlassBackdropBrush}" BorderBrush="#E6FFFFFF" BorderThickness="1"
-                Effect="{StaticResource GlassPopupShadow}"/>
+        <Border CornerRadius="26" Background="{DynamicResource GlassBackdropBrush}" BorderBrush="{DynamicResource GlassStrokeBrush}" BorderThickness="1"
+                Effect="{DynamicResource GlassPopupShadow}"/>
         <Border CornerRadius="26" Padding="26,22">
             <Grid>
                 <Grid.RowDefinitions>
@@ -37,13 +37,13 @@
                                HorizontalAlignment="Center"
                                FontSize="22"
                                FontWeight="Bold"
-                               Foreground="{StaticResource GlassInkBrush}"/>
+                               Foreground="{DynamicResource GlassInkBrush}"/>
                     <TextBlock Name="TxtLoading"
                                Text="Uruchamianie"
                                HorizontalAlignment="Center"
                                FontSize="12.5"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource GlassInk2Brush}"/>
+                               Foreground="{DynamicResource GlassInk2Brush}"/>
                 </StackPanel>
 
                 <ProgressBar Name="PrgLoading"

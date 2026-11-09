@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:MinecraftHelper">
     <!--
-        Jasny motyw glass wspólny dla Kopacza i Auto Clickera.
+        Motyw glass wspólny dla Kopacza i Auto Clickera (wartości jasne; ciemne: GlassThemeMode w GlassPalette.cs).
         Kolory akcentu (GlassAccent*) i tło (GlassBackdropBrush) pochodzą z GlassAccent*.xaml,
         dlatego są pobierane przez DynamicResource.
     -->
@@ -23,6 +23,24 @@
     <SolidColorBrush x:Key="GlassWarnSoftBrush" Color="#24F59E0B"/>
     <SolidColorBrush x:Key="GlassBadBrush" Color="#C81E1E"/>
     <SolidColorBrush x:Key="GlassBadSoftBrush" Color="#1FEF4444"/>
+    <!-- Kolory stanów kontrolek. Jasne wartości tutaj; ciemny motyw nadpisuje te same klucze
+         w zasobach aplikacji (GlassThemeMode), więc w szablonach są pobierane przez DynamicResource. -->
+    <SolidColorBrush x:Key="GlassRaisedBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="GlassHoverBrush" Color="#E6FFFFFF"/>
+    <SolidColorBrush x:Key="GlassPopupBrush" Color="#F7FFFFFF"/>
+    <SolidColorBrush x:Key="GlassPopupStrokeBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="GlassControlBrush" Color="#A8FFFFFF"/>
+    <SolidColorBrush x:Key="GlassKeyCapBorderBrush" Color="#29161A2B"/>
+    <SolidColorBrush x:Key="GlassKeyCapHoverBrush" Color="#F7F8FC"/>
+    <SolidColorBrush x:Key="GlassThumbBrush" Color="#2E161A2B"/>
+    <SolidColorBrush x:Key="GlassThumbHoverBrush" Color="#52161A2B"/>
+    <SolidColorBrush x:Key="GlassThumbPressedBrush" Color="#70161A2B"/>
+    <SolidColorBrush x:Key="GlassNavHoverBrush" Color="#8CFFFFFF"/>
+    <SolidColorBrush x:Key="GlassChoiceCardBrush" Color="#80FFFFFF"/>
+    <SolidColorBrush x:Key="GlassChoiceCardHoverBrush" Color="#CCFFFFFF"/>
+    <SolidColorBrush x:Key="GlassRingBrush" Color="#4D161A2B"/>
+    <SolidColorBrush x:Key="GlassToggleOffBrush" Color="#29161A2B"/>
+
 
     <DropShadowEffect x:Key="GlassCardShadow" BlurRadius="22" ShadowDepth="6" Direction="270" Opacity="0.07" Color="#1E2450"/>
     <DropShadowEffect x:Key="GlassPopupShadow" BlurRadius="24" ShadowDepth="8" Direction="270" Opacity="0.16" Color="#1E2450"/>
@@ -32,52 +50,52 @@
     <Style x:Key="GlassH1" TargetType="TextBlock">
         <Setter Property="FontSize" Value="26"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
     </Style>
     <Style x:Key="GlassLead" TargetType="TextBlock">
         <Setter Property="FontSize" Value="13.5"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
         <Setter Property="Margin" Value="0,4,0,0"/>
     </Style>
     <Style x:Key="GlassH3" TargetType="TextBlock">
         <Setter Property="FontSize" Value="14"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style x:Key="GlassCaption" TargetType="TextBlock">
         <Setter Property="FontSize" Value="10.5"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="Margin" Value="0,0,0,6"/>
     </Style>
     <Style x:Key="GlassTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="15"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
     </Style>
     <Style x:Key="GlassH2" TargetType="TextBlock">
         <Setter Property="FontSize" Value="14.5"/>
         <Setter Property="FontWeight" Value="Bold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
     <Style x:Key="GlassSub" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11.5"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="GlassLabel" TargetType="TextBlock">
         <Setter Property="FontSize" Value="11.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="Margin" Value="0,0,0,4"/>
     </Style>
     <Style x:Key="GlassOptionTitle" TargetType="TextBlock">
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
     </Style>
     <Style x:Key="GlassMono" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource GlassMonoFont}"/>
@@ -96,13 +114,13 @@
 
     <!-- ===== Powierzchnie ===== -->
     <Style x:Key="GlassCard" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource GlassSurfaceBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassStrokeBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassStrokeBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="18"/>
         <Setter Property="Padding" Value="14"/>
         <Setter Property="Margin" Value="0,0,0,10"/>
-        <Setter Property="Effect" Value="{StaticResource GlassCardShadow}"/>
+        <Setter Property="Effect" Value="{DynamicResource GlassCardShadow}"/>
         <Style.Triggers>
             <EventTrigger RoutedEvent="FrameworkElement.Loaded">
                 <BeginStoryboard>
@@ -118,8 +136,8 @@
         </Style.Triggers>
     </Style>
     <Style x:Key="GlassInset" TargetType="Border">
-        <Setter Property="Background" Value="#99FFFFFF"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="12,10"/>
@@ -132,8 +150,8 @@
         <Setter Property="TextElement.Foreground" Value="{DynamicResource GlassAccentInkBrush}"/>
     </Style>
     <Style x:Key="GlassWarnNote" TargetType="Border" BasedOn="{StaticResource GlassNote}">
-        <Setter Property="Background" Value="{StaticResource GlassWarnSoftBrush}"/>
-        <Setter Property="TextElement.Foreground" Value="{StaticResource GlassWarnBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassWarnSoftBrush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource GlassWarnBrush}"/>
     </Style>
     <Style x:Key="GlassIconTile" TargetType="Border">
         <Setter Property="Width" Value="32"/>
@@ -147,23 +165,23 @@
         <Setter Property="Height" Value="22"/>
         <Setter Property="Padding" Value="8,0"/>
         <Setter Property="CornerRadius" Value="11"/>
-        <Setter Property="Background" Value="{StaticResource GlassNeutralSoftBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassNeutralSoftBrush}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="TextElement.FontSize" Value="11"/>
         <Setter Property="TextElement.FontWeight" Value="Bold"/>
-        <Setter Property="TextElement.Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource GlassInk2Brush}"/>
     </Style>
     <Style x:Key="GlassDivider" TargetType="Border">
         <Setter Property="Height" Value="1"/>
-        <Setter Property="Background" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="Margin" Value="0,10"/>
     </Style>
 
     <!-- ===== Przyciski ===== -->
     <Style TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource GlassSurface2Brush}"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassStrokeBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassSurface2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassStrokeBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Padding" Value="12,0"/>
         <Setter Property="MinHeight" Value="32"/>
@@ -189,7 +207,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.82"/>
@@ -240,7 +258,7 @@
         </Setter>
     </Style>
     <Style x:Key="GlassDangerButton" TargetType="Button" BasedOn="{StaticResource GlassPrimaryButton}">
-        <Setter Property="Background" Value="{StaticResource GlassBadBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassBadBrush}"/>
     </Style>
     <Style x:Key="GlassTextButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background" Value="Transparent"/>
@@ -276,7 +294,7 @@
         <Setter Property="Height" Value="34"/>
         <Setter Property="MinHeight" Value="0"/>
         <Setter Property="Padding" Value="0"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
     </Style>
     <Style x:Key="GlassChipButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="MinHeight" Value="30"/>
@@ -295,7 +313,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -311,7 +329,7 @@
         <Setter Property="Margin" Value="6,0,0,0"/>
         <Setter Property="Focusable" Value="False"/>
         <Setter Property="Cursor" Value="Help"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="Bold"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
@@ -320,7 +338,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" Background="{StaticResource GlassNeutralSoftBrush}" CornerRadius="10">
+                    <Border x:Name="Bd" Background="{DynamicResource GlassNeutralSoftBrush}" CornerRadius="10">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -336,7 +354,7 @@
 
     <!-- ===== Podpowiedzi ===== -->
     <Style TargetType="ToolTip">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="FontFamily" Value="{StaticResource GlassFont}"/>
         <Setter Property="FontSize" Value="11.5"/>
         <Setter Property="MaxWidth" Value="420"/>
@@ -345,12 +363,12 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ToolTip">
                     <Border Margin="8,4,8,12"
-                            Background="#F7FFFFFF"
-                            BorderBrush="{StaticResource GlassLineBrush}"
+                            Background="{DynamicResource GlassPopupBrush}"
+                            BorderBrush="{DynamicResource GlassLineBrush}"
                             BorderThickness="1"
                             CornerRadius="12"
                             Padding="11,9"
-                            Effect="{StaticResource GlassPopupShadow}">
+                            Effect="{DynamicResource GlassPopupShadow}">
                         <ContentPresenter>
                             <ContentPresenter.Resources>
                                 <Style TargetType="TextBlock">
@@ -372,11 +390,11 @@
     <!-- ===== Pola tekstowe ===== -->
     <!-- Pole hasła (token bota) — ten sam wygląd co zwykłe pole tekstowe. -->
     <Style TargetType="PasswordBox">
-        <Setter Property="Background" Value="{StaticResource GlassFieldBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassFieldBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CaretBrush" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="9,0"/>
         <Setter Property="MinHeight" Value="34"/>
@@ -392,11 +410,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#E6FFFFFF"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -405,11 +423,11 @@
     </Style>
 
     <Style TargetType="TextBox">
-        <Setter Property="Background" Value="{StaticResource GlassFieldBrush}"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassFieldBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CaretBrush" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="CaretBrush" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="SelectionBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="Padding" Value="9,0"/>
@@ -434,11 +452,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#E6FFFFFF"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.5"/>
@@ -456,13 +474,13 @@
         <Setter Property="Padding" Value="5,0"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="HorizontalContentAlignment" Value="Center"/>
-        <Setter Property="Background" Value="White"/>
+        <Setter Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
         <Setter Property="ToolTip" Value="Kliknij i naciśnij klawisz"/>
     </Style>
     <!-- Pole binda jak w canvie: jedno zaokrąglone pole z klawiszem po lewej i akcjami po prawej. -->
     <Style x:Key="GlassBindField" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource GlassFieldBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassFieldBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius" Value="11"/>
         <Setter Property="MinHeight" Value="40"/>
@@ -472,9 +490,9 @@
     </Style>
     <!-- Klawisz binda w postaci nakładki klawiatury; kliknięcie rozpoczyna przechwytywanie (obsługa w kodzie). -->
     <Style x:Key="GlassKeyCap" TargetType="TextBox">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
-        <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="#29161A2B"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassKeyCapBorderBrush}"/>
         <Setter Property="BorderThickness" Value="1,1,1,2.5"/>
         <Setter Property="FontFamily" Value="{StaticResource GlassMonoFont}"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -501,7 +519,7 @@
                             CornerRadius="8">
                         <Grid>
                             <TextBlock x:Name="Placeholder" Text="Brak" FontStyle="Italic" FontWeight="Normal"
-                                       Foreground="{StaticResource GlassInk2Brush}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource GlassInk2Brush}" HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Margin="{TemplateBinding Padding}" Visibility="Collapsed"/>
                             <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"
                                           Focusable="False" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
@@ -512,7 +530,7 @@
                             <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#F7F8FC"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassKeyCapHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
@@ -529,7 +547,7 @@
     <Style x:Key="GlassMiniIconButton" TargetType="Button">
         <Setter Property="Width" Value="30"/>
         <Setter Property="Height" Value="30"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
@@ -540,8 +558,8 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassBadSoftBrush}"/>
-                            <Setter Property="Foreground" Value="{StaticResource GlassBadBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassBadSoftBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassBadBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Bd" Property="Opacity" Value="0.4"/>
@@ -564,7 +582,7 @@
 
     <!-- ===== Lista rozwijana ===== -->
     <Style x:Key="GlassComboItem" TargetType="ComboBoxItem">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="Padding" Value="10,7"/>
         <Setter Property="Margin" Value="0,1"/>
         <Setter Property="Template">
@@ -575,7 +593,7 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsHighlighted" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource GlassNeutralSoftBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassNeutralSoftBrush}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassAccentSoftBrush}"/>
@@ -583,7 +601,7 @@
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -592,9 +610,9 @@
     </Style>
     <Style TargetType="ComboBoxItem" BasedOn="{StaticResource GlassComboItem}"/>
     <Style TargetType="ComboBox">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
-        <Setter Property="Background" Value="{StaticResource GlassFieldBrush}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassFieldBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="MinHeight" Value="34"/>
@@ -622,7 +640,7 @@
                                               VerticalAlignment="Center"
                                               Margin="0,0,11,0"
                                               Data="M0,0 L5,5 L10,0"
-                                              Stroke="{StaticResource GlassInk2Brush}"
+                                              Stroke="{DynamicResource GlassInk2Brush}"
                                               StrokeThickness="1.8"
                                               StrokeStartLineCap="Round"
                                               StrokeEndLineCap="Round"
@@ -630,10 +648,10 @@
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#E6FFFFFF"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassHoverBrush}"/>
                                         </Trigger>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
@@ -655,21 +673,30 @@
                                Focusable="False"
                                PopupAnimation="Fade">
                             <Border Margin="10,0,10,16"
-                                    Background="#FAFFFFFF"
-                                    BorderBrush="{StaticResource GlassLineBrush}"
+                                    Background="{DynamicResource GlassPopupBrush}"
+                                    BorderBrush="{DynamicResource GlassLineBrush}"
                                     BorderThickness="1"
                                     CornerRadius="12"
                                     Padding="4"
-                                    Effect="{StaticResource GlassPopupShadow}"
+                                    Effect="{DynamicResource GlassPopupShadow}"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}">
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
-                                </ScrollViewer>
+                                <Grid>
+                                    <!-- Pusta lista: napis zamiast samej ramki. Własny tekst listy podaje Tag kontrolki. -->
+                                    <TextBlock x:Name="EmptyText" Margin="10,7" FontSize="12.5" Visibility="Collapsed"
+                                               Foreground="{DynamicResource GlassInk2Brush}"
+                                               Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}, TargetNullValue='Lista jest pusta'}"/>
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Grid>
                             </Border>
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="HasItems" Value="False">
+                            <Setter TargetName="EmptyText" Property="Visibility" Value="Visible"/>
+                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
                         </Trigger>
@@ -681,7 +708,7 @@
 
     <!-- ===== Przełącznik (CheckBox): opis po lewej, suwak po prawej ===== -->
     <Style TargetType="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -711,7 +738,7 @@
                                 Height="24"
                                 CornerRadius="12"
                                 VerticalAlignment="Center"
-                                Background="#29161A2B"
+                                Background="{DynamicResource GlassToggleOffBrush}"
                                 BorderBrush="Transparent"
                                 BorderThickness="0">
                             <Border x:Name="Knob"
@@ -721,7 +748,7 @@
                                     CornerRadius="9"
                                     Background="White"
                                     HorizontalAlignment="Left"
-                                    Effect="{StaticResource GlassSoftShadow}">
+                                    Effect="{DynamicResource GlassSoftShadow}">
                                 <Border.RenderTransform>
                                     <TranslateTransform x:Name="KnobShift"/>
                                 </Border.RenderTransform>
@@ -768,7 +795,7 @@
 
     <!-- Kafelek wyboru (RadioButton/ToggleButton) w stylu „chip”. -->
     <Style x:Key="GlassChoiceChip" TargetType="ToggleButton">
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontSize" Value="12"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="MinHeight" Value="32"/>
@@ -779,21 +806,21 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
                     <Border x:Name="Bd"
-                            Background="#A8FFFFFF"
-                            BorderBrush="{StaticResource GlassLineBrush}"
+                            Background="{DynamicResource GlassControlBrush}"
+                            BorderBrush="{DynamicResource GlassLineBrush}"
                             BorderThickness="1"
                             CornerRadius="11">
                         <ContentPresenter Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
                             <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
-                            <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -816,7 +843,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <Border Margin="{TemplateBinding Padding}"
-                                Background="{StaticResource GlassNeutralSoftBrush}"
+                                Background="{DynamicResource GlassNeutralSoftBrush}"
                                 CornerRadius="14"
                                 Padding="4">
                             <UniformGrid Rows="1" IsItemsHost="True" KeyboardNavigation.TabIndex="1"/>
@@ -829,7 +856,7 @@
     </Style>
     <!-- Kolor ustawiany jest tylko na nagłówku; treść zakładki dziedziczy zwykły kolor tekstu. -->
     <Style TargetType="TabItem">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -839,16 +866,16 @@
                 <ControlTemplate TargetType="TabItem">
                     <Border x:Name="Bd" Height="32" Margin="1.5,0" CornerRadius="10" Background="Transparent">
                         <ContentPresenter x:Name="Hd" ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0"
-                                          TextElement.Foreground="{StaticResource GlassInk2Brush}"/>
+                                          TextElement.Foreground="{DynamicResource GlassInk2Brush}"/>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#99FFFFFF"/>
-                            <Setter TargetName="Hd" Property="TextElement.Foreground" Value="{StaticResource GlassInkBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassSurfaceBrush}"/>
+                            <Setter TargetName="Hd" Property="TextElement.Foreground" Value="{DynamicResource GlassInkBrush}"/>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
-                            <Setter TargetName="Bd" Property="Effect" Value="{StaticResource GlassSoftShadow}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
+                            <Setter TargetName="Bd" Property="Effect" Value="{DynamicResource GlassSoftShadow}"/>
                             <Setter TargetName="Hd" Property="TextElement.Foreground" Value="{DynamicResource GlassAccentInkBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
@@ -873,13 +900,13 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Thumb">
-                    <Border x:Name="Bd" Margin="2" CornerRadius="3" Background="#2E161A2B"/>
+                    <Border x:Name="Bd" Margin="2" CornerRadius="3" Background="{DynamicResource GlassThumbBrush}"/>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#52161A2B"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassThumbHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsDragging" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#70161A2B"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassThumbPressedBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -948,7 +975,7 @@
         </Style.Triggers>
     </Style>
     <Style x:Key="GlassNavItem" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontSize" Value="13.5"/>
         <Setter Property="FontWeight" Value="Medium"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -963,13 +990,13 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#8CFFFFFF"/>
-                            <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassNavHoverBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#D9FFFFFF"/>
-                            <Setter TargetName="Bd" Property="Effect" Value="{StaticResource GlassSoftShadow}"/>
-                            <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassSurface2Brush}"/>
+                            <Setter TargetName="Bd" Property="Effect" Value="{DynamicResource GlassSoftShadow}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
                             <Setter Property="FontWeight" Value="SemiBold"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
@@ -984,13 +1011,13 @@
 
     <!-- ===== Przełącznik segmentowy (RadioButton w Border GlassSegmentHost) ===== -->
     <Style x:Key="GlassSegmentHost" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource GlassNeutralSoftBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassNeutralSoftBrush}"/>
         <Setter Property="CornerRadius" Value="12"/>
         <Setter Property="Padding" Value="3"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
     <Style x:Key="GlassSegment" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -1003,11 +1030,11 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#99FFFFFF"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassSurfaceBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
-                            <Setter TargetName="Bd" Property="Effect" Value="{StaticResource GlassSoftShadow}"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
+                            <Setter TargetName="Bd" Property="Effect" Value="{DynamicResource GlassSoftShadow}"/>
                             <Setter Property="Foreground" Value="{DynamicResource GlassAccentInkBrush}"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -1021,7 +1048,7 @@
 
     <!-- ===== Chip wyboru (CheckBox) z ptaszkiem ===== -->
     <Style x:Key="GlassChip" TargetType="CheckBox">
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontSize" Value="12.5"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
         <Setter Property="Cursor" Value="Hand"/>
@@ -1031,10 +1058,10 @@
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
                     <Border x:Name="Bd" MinHeight="34" CornerRadius="11" Padding="7,0,12,0"
-                            Background="#A8FFFFFF" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="1">
+                            Background="{DynamicResource GlassControlBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1">
                         <StackPanel Orientation="Horizontal">
                             <Border x:Name="Tick" Width="18" Height="18" CornerRadius="6" Margin="0,0,7,0" VerticalAlignment="Center"
-                                    Background="{StaticResource GlassNeutralSoftBrush}">
+                                    Background="{DynamicResource GlassNeutralSoftBrush}">
                                 <Path x:Name="TickMark" Data="M4,9.5 L7.5,13 L14,5.5" Stroke="White" StrokeThickness="2.2"
                                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
                             </Border>
@@ -1043,14 +1070,14 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
                             <Setter TargetName="Tick" Property="Background" Value="{DynamicResource GlassAccentBrush}"/>
                             <Setter TargetName="TickMark" Property="Visibility" Value="Visible"/>
-                            <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+                            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
                         </Trigger>
                         <Trigger Property="IsKeyboardFocused" Value="True">
                             <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
@@ -1068,10 +1095,10 @@
     <Style x:Key="GlassSlotCheck" TargetType="CheckBox">
         <Setter Property="Height" Value="36"/>
         <Setter Property="Margin" Value="2"/>
-        <Setter Property="Background" Value="#99FFFFFF"/>
-        <Setter Property="BorderBrush" Value="{StaticResource GlassLineBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GlassSurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GlassLineBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInk2Brush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
         <Setter Property="FontFamily" Value="{StaticResource GlassMonoFont}"/>
         <Setter Property="FontSize" Value="11"/>
         <Setter Property="FontWeight" Value="SemiBold"/>
@@ -1099,7 +1126,7 @@
 
     <!-- ===== Karta wyboru (RadioButton) z kropką ===== -->
     <Style x:Key="GlassChoiceCard" TargetType="RadioButton">
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="Margin" Value="0,0,0,10"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -1107,15 +1134,15 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="Bd" CornerRadius="16" Padding="14,12" Background="#80FFFFFF"
-                            BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="1.5">
+                    <Border x:Name="Bd" CornerRadius="16" Padding="14,12" Background="{DynamicResource GlassChoiceCardBrush}"
+                            BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1.5">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Grid Width="20" Height="20" Margin="0,1,12,0" VerticalAlignment="Top">
-                                <Ellipse x:Name="Ring" Stroke="#4D161A2B" StrokeThickness="2" Fill="White"/>
+                                <Ellipse x:Name="Ring" Stroke="{DynamicResource GlassRingBrush}" StrokeThickness="2" Fill="{DynamicResource GlassRaisedBrush}"/>
                                 <Ellipse x:Name="Dot" Width="10" Height="10" Fill="{DynamicResource GlassAccentBrush}" Visibility="Collapsed"/>
                             </Grid>
                             <ContentPresenter Grid.Column="1"/>
@@ -1123,10 +1150,10 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="#CCFFFFFF"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassChoiceCardHoverBrush}"/>
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="White"/>
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
                             <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
                             <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource GlassAccentSolidBrush}"/>
                             <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
@@ -1172,7 +1199,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Slider">
                     <Grid Height="22">
-                        <Border Height="6" CornerRadius="3" Background="{StaticResource GlassNeutralSoftBrush}" VerticalAlignment="Center"/>
+                        <Border Height="6" CornerRadius="3" Background="{DynamicResource GlassNeutralSoftBrush}" VerticalAlignment="Center"/>
                         <Track x:Name="PART_Track">
                             <Track.DecreaseRepeatButton>
                                 <RepeatButton Command="Slider.DecreaseLarge" Focusable="False">
@@ -1190,7 +1217,7 @@
                                 <Thumb Width="18" Height="18">
                                     <Thumb.Template>
                                         <ControlTemplate TargetType="Thumb">
-                                            <Ellipse Fill="White" Stroke="{DynamicResource GlassAccentSolidBrush}" StrokeThickness="2" Effect="{StaticResource GlassSoftShadow}"/>
+                                            <Ellipse Fill="White" Stroke="{DynamicResource GlassAccentSolidBrush}" StrokeThickness="2" Effect="{DynamicResource GlassSoftShadow}"/>
                                         </ControlTemplate>
                                     </Thumb.Template>
                                 </Thumb>
@@ -1209,7 +1236,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="ProgressBar">
                     <Grid>
-                        <Border x:Name="PART_Track" CornerRadius="4" Background="{StaticResource GlassNeutralSoftBrush}"/>
+                        <Border x:Name="PART_Track" CornerRadius="4" Background="{DynamicResource GlassNeutralSoftBrush}"/>
                         <Border x:Name="PART_Indicator" CornerRadius="4" HorizontalAlignment="Left" Background="{DynamicResource GlassAccentBrush}"/>
                     </Grid>
                 </ControlTemplate>
@@ -1223,11 +1250,11 @@
         <Setter Property="HasDropShadow" Value="False"/>
         <Setter Property="FontFamily" Value="{StaticResource GlassFont}"/>
         <Setter Property="FontSize" Value="12.5"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ContextMenu">
-                    <Border Margin="12" Padding="5" MinWidth="220" CornerRadius="14" Background="#F2FFFFFF" BorderBrush="#FFFFFFFF" BorderThickness="1">
+                    <Border Margin="12" Padding="5" MinWidth="220" CornerRadius="14" Background="{DynamicResource GlassPopupBrush}" BorderBrush="{DynamicResource GlassPopupStrokeBrush}" BorderThickness="1">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.18" Color="#1E2450"/>
                         </Border.Effect>
@@ -1240,7 +1267,7 @@
     <Style x:Key="GlassTrayMenuItem" TargetType="MenuItem">
         <Setter Property="OverridesDefaultStyle" Value="True"/>
         <Setter Property="Cursor" Value="Hand"/>
-        <Setter Property="Foreground" Value="{StaticResource GlassInkBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="MenuItem">
@@ -1279,7 +1306,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Separator">
-                    <Border Height="1" Margin="8,4" Background="{StaticResource GlassLineBrush}"/>
+                    <Border Height="1" Margin="8,4" Background="{DynamicResource GlassLineBrush}"/>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

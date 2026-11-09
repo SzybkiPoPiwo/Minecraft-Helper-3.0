@@ -176,7 +176,7 @@ internal sealed class DiscordBotHost : IDisposable
         {
             AppLog.Warn("Discord", $"Odrzucono wyłączoną komendę {prefix}{command.Id}.");
             await NoticeAsync(message.ChannelId, "🚫 Komenda wyłączona",
-                $"`{prefix}{command.Id}` jest wyłączona w Kopaczu (Ustawienia → Bot Discord → Komendy bota).", DiscordColors.Neutral).ConfigureAwait(false);
+                $"`{prefix}{command.Id}` jest wyłączona w Kopaczu (zakładka Discord → Komendy).", DiscordColors.Neutral).ConfigureAwait(false);
             return;
         }
 

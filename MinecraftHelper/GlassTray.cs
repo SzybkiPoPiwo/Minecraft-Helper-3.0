@@ -90,16 +90,16 @@ internal sealed class TrayToastWindow : Window
             Margin = new Thickness(14),
             Padding = new Thickness(14, 12, 16, 13),
             CornerRadius = new CornerRadius(16),
-            Background = new SolidColorBrush(Color.FromArgb(0xC7, 0xFF, 0xFF, 0xFF)),
-            BorderBrush = new SolidColorBrush(Color.FromArgb(0xE6, 0xFF, 0xFF, 0xFF)),
+            Background = GlassPalette.Popup,
+            BorderBrush = GlassPalette.PopupStroke,
             BorderThickness = new Thickness(1),
             Effect = new DropShadowEffect
             {
                 BlurRadius = 18,
                 ShadowDepth = 4,
                 Direction = 270,
-                Opacity = 0.16,
-                Color = Color.FromRgb(0x1E, 0x24, 0x50)
+                Opacity = GlassPalette.IsDark ? 0.4 : 0.16,
+                Color = GlassPalette.ShadowColor
             },
             Child = row,
             RenderTransform = _slide

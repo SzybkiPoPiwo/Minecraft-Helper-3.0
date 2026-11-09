@@ -9,7 +9,7 @@ using MinecraftHelper.Services;
 
 namespace MinecraftHelper;
 
-// Karta „Bot Discord” w Ustawieniach oraz powiadomienia tego konta.
+// Zakładka „Discord” oraz powiadomienia tego konta.
 // Ustawienia są wspólne (discord.json), bot z komendami działa w głównym procesie Kopacza.
 public partial class MainWindow
 {
@@ -139,15 +139,31 @@ public partial class MainWindow
             urgent: true,
             color: DiscordColors.Accent);
 
+    // Domyślne odstępy, gdy ktoś dopiero włącza wiadomości cykliczne (w discord.json 0 = wyłączone).
+    private const int DefaultDiscordStatusMinutes = 60;
+    private const int DefaultDiscordScreenshotMinutes = 30;
+
+    private bool _loadingDiscordUi;
+
     private void LoadDiscordSettingsToUi()
     {
         DiscordSettings settings = DiscordSettingsStore.Load();
-        ChkDiscordEnabled.IsChecked = settings.Enabled;
+        _loadingDiscordUi = true;
+        try
+        {
+            ChkDiscordEnabled.IsChecked = settings.Enabled;
+            ChkDiscordPeriodicStatus.IsChecked = settings.StatusIntervalMinutes > 0;
+            ChkDiscordPeriodicScreenshot.IsChecked = settings.ScreenshotIntervalMinutes > 0;
+        }
+        finally
+        {
+            _loadingDiscordUi = false;
+        }
         TxtDiscordChannelId.Text = settings.ChannelId;
         TxtDiscordOwnerIds.Text = settings.OwnerUserIds;
         TxtDiscordPrefix.Text = settings.Prefix;
-        TxtDiscordScreenshotMinutes.Text = settings.ScreenshotIntervalMinutes.ToString(CultureInfo.InvariantCulture);
-        TxtDiscordStatusMinutes.Text = settings.StatusIntervalMinutes.ToString(CultureInfo.InvariantCulture);
+        TxtDiscordStatusMinutes.Text = (settings.StatusIntervalMinutes > 0 ? settings.StatusIntervalMinutes : DefaultDiscordStatusMinutes).ToString(CultureInfo.InvariantCulture);
+        TxtDiscordScreenshotMinutes.Text = (settings.ScreenshotIntervalMinutes > 0 ? settings.ScreenshotIntervalMinutes : DefaultDiscordScreenshotMinutes).ToString(CultureInfo.InvariantCulture);
         ChkDiscordNotifyProtection.IsChecked = settings.NotifyProtection;
         ChkDiscordNotifyReconnect.IsChecked = settings.NotifyReconnect;
         ChkDiscordNotifyPickaxe.IsChecked = settings.NotifyMissingPickaxe;
@@ -158,6 +174,52 @@ public partial class MainWindow
         PwdDiscordToken.Password = string.Empty;
         UpdateDiscordTokenState(settings);
         RefreshDiscordCommandPills(settings);
+        UpdateDiscordSections();
+        RefreshDiscordStatus();
+    }
+
+    // Wyłączona opcja chowa swoje ustawienia: cała strona przy wyłączonym bocie, pole minut
+    // przy wyłączonej wiadomości cyklicznej.
+    private void UpdateDiscordSections()
+    {
+        SetExpandableSectionState(PanelDiscordContent, ChkDiscordEnabled.IsChecked == true);
+        SetExpandableSectionState(PanelDiscordStatusInterval, ChkDiscordPeriodicStatus.IsChecked == true);
+        SetExpandableSectionState(PanelDiscordScreenshotInterval, ChkDiscordPeriodicScreenshot.IsChecked == true);
+    }
+
+    private void DiscordPeriodic_Changed(object sender, RoutedEventArgs e) => UpdateDiscordSections();
+
+    // Przełącznik bota działa od razu (zapisuje tylko „włączony”) — bez tego wyłączenie
+    // schowałoby przycisk Zapisz, a bot dalej by działał.
+    private void ChkDiscordEnabled_Changed(object sender, RoutedEventArgs e)
+    {
+        UpdateDiscordSections();
+        if (_loadingDiscordUi)
+            return;
+
+        bool enabled = ChkDiscordEnabled.IsChecked == true;
+        DiscordSettings settings = DiscordSettingsStore.Load();
+        if (settings.Enabled != enabled)
+        {
+            settings.Enabled = enabled;
+            try
+            {
+                DiscordSettingsStore.Save(settings);
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                UpdateStatusBar("Nie udało się zapisać ustawień Discord: " + ex.Message, "Red");
+                return;
+            }
+            AppLog.Info("Discord", enabled ? "Bot włączony." : "Bot wyłączony.");
+        }
+
+        if (!enabled)
+            UpdateStatusBar("Bot Discord wyłączony.", "Orange");
+        else if (!settings.HasToken || settings.ChannelId.Length == 0)
+            UpdateStatusBar("Bot Discord włączony — wklej token i ID kanału, potem kliknij „Zapisz ustawienia Discord”.", "Orange");
+        else
+            UpdateStatusBar("Bot Discord włączony — połączy się w ciągu kilku sekund.", "Green");
         RefreshDiscordStatus();
     }
 
@@ -251,8 +313,9 @@ public partial class MainWindow
             ChannelId = channel,
             OwnerUserIds = owners,
             CommandPrefix = string.IsNullOrWhiteSpace(TxtDiscordPrefix.Text) ? "!" : TxtDiscordPrefix.Text.Trim(),
-            ScreenshotIntervalMinutes = Math.Clamp(ParseNonNegativeInt(TxtDiscordScreenshotMinutes.Text), 0, 1440),
-            StatusIntervalMinutes = Math.Clamp(ParseNonNegativeInt(TxtDiscordStatusMinutes.Text), 0, 1440),
+            // Wyłączony przełącznik = 0 (bez wiadomości cyklicznych); włączony — co najmniej minuta.
+            ScreenshotIntervalMinutes = ChkDiscordPeriodicScreenshot.IsChecked == true ? Math.Clamp(ParseNonNegativeInt(TxtDiscordScreenshotMinutes.Text), 1, 1440) : 0,
+            StatusIntervalMinutes = ChkDiscordPeriodicStatus.IsChecked == true ? Math.Clamp(ParseNonNegativeInt(TxtDiscordStatusMinutes.Text), 1, 1440) : 0,
             NotifyProtection = ChkDiscordNotifyProtection.IsChecked == true,
             NotifyReconnect = ChkDiscordNotifyReconnect.IsChecked == true,
             NotifyMissingPickaxe = ChkDiscordNotifyPickaxe.IsChecked == true,
@@ -289,14 +352,16 @@ public partial class MainWindow
             return false;
         }
 
-        // Pierwszy zapis tokenu szedł z wyłączonym botem (przełącznik w rogu karty łatwo
+        // Pierwszy zapis tokenu szedł z wyłączonym botem (przełącznik bota łatwo
         // przeoczyć) — token był zapisany, ale bot milczał do drugiego zapisu. Wpisanie
         // nowego tokenu oznacza chęć użycia bota, więc go włączamy.
         bool enabledByToken = false;
         if (!settings.Enabled && PwdDiscordToken.Password.Trim().Length > 0)
         {
             settings.Enabled = true;
+            _loadingDiscordUi = true; // włączenie zapisuje się niżej, razem z resztą pól
             ChkDiscordEnabled.IsChecked = true;
+            _loadingDiscordUi = false;
             enabledByToken = true;
         }
 
@@ -315,7 +380,7 @@ public partial class MainWindow
         AppLog.Info("Discord", settings.Enabled ? "Zapisano ustawienia bota (włączony)." : "Zapisano ustawienia bota (wyłączony).");
         string prefix = successPrefix ?? "Zapisano ustawienia Discord.";
         if (!settings.Enabled)
-            UpdateStatusBar(prefix + " Bot jest wyłączony — włącz przełącznik w rogu karty „Bot Discord” i zapisz ponownie, aby odpowiadał na komendy.", "Orange");
+            UpdateStatusBar(prefix + " Bot jest wyłączony — włącz przełącznik „Bot Discord” na górze zakładki, aby odpowiadał na komendy.", "Orange");
         else if (settings.ChannelId.Length == 0)
             UpdateStatusBar(prefix + " Uzupełnij jeszcze ID kanału — bez niego bot się nie połączy.", "Orange");
         else if (settings.GetOwnerIds().Count == 0)
@@ -376,7 +441,7 @@ public partial class MainWindow
                 Description = $"Wiadomość testowa z ustawień. Wpisz `{settings.Prefix}pomoc`, aby zobaczyć komendy."
             }
                 .Field("🤖 Bot", botName, true)
-                .Field("🔔 Komendy", settings.Enabled ? "włączone" : "wyłączone — włącz przełącznik i zapisz", true);
+                .Field("🔔 Komendy", settings.Enabled ? "włączone" : "wyłączone — włącz przełącznik bota", true);
             await DiscordRest.SendEmbedAsync(token, settings.ChannelId, embed, mention.Length > 0 ? mention + "Test z Kopacza" : null);
             // Token sprawdzony przez Discorda — zapisujemy go od razu, żeby udany test
             // nie zostawiał niezapisanego tokenu w polu.
@@ -385,7 +450,7 @@ public partial class MainWindow
             else if (settings.Enabled)
                 UpdateStatusBar($"Wysłano wiadomość testową jako {botName}.", "Green");
             else
-                UpdateStatusBar($"Wysłano test jako {botName}. Teraz włącz przełącznik w rogu karty i kliknij „Zapisz ustawienia Discord” — dopiero wtedy bot odpowie na komendy.", "Orange");
+                UpdateStatusBar($"Wysłano test jako {botName}. Teraz włącz przełącznik „Bot Discord” na górze zakładki — dopiero wtedy bot odpowie na komendy.", "Orange");
         }
         catch (Exception ex)
         {
@@ -412,7 +477,7 @@ public partial class MainWindow
         DiscordAlertSample[] samples = DiscordNotificationSamples.All.Where(sample => DiscordNotifier.IsEnabled(settings, sample.Kind)).ToArray();
         if (samples.Length == 0)
         {
-            UpdateStatusBar("Wszystkie powiadomienia są wyłączone — zaznacz przynajmniej jedno w karcie Bot Discord.", "Orange");
+            UpdateStatusBar("Wszystkie powiadomienia są wyłączone — zaznacz przynajmniej jedno w karcie Powiadomienia.", "Orange");
             return;
         }
 

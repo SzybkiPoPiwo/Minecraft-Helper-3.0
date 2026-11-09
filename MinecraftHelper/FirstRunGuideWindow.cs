@@ -116,16 +116,15 @@ namespace MinecraftHelper
                 guidePanel.Children.Add(BuildInfoCard(
                     "Najpierw przygotuj program",
                     "1. Uruchom Minecrafta lub BlazingPacka i wejdź do gry.\n" +
-                    "2. W zakładce Ustawienia kliknij Odśwież, wybierz właściwy proces gry — nie launcher — i kliknij Zapisz program.\n" +
-                    "3. Włącz dołączoną paczkę zasobów, jeżeli chcesz korzystać z Auto EQ, kontroli kilofa lub ochrony awaryjnej.\n" +
+                    "2. W zakładce Okno gry kliknij Odśwież, wybierz właściwy proces gry — nie launcher — i kliknij Zapisz okno.\n" +
+                    "3. Włącz w grze paczkę zasobów, którą Kopacz tworzy sam (Ustawienia → Paczka zasobów) — bez niej nie działają Auto EQ, kontrola kilofa ani ochrona.\n" +
                     "4. Rozwiń używany tryb Kopacza i przeczytaj jego pełny opis pod przyciskiem ?."));
                 guidePanel.Children.Add(BuildInfoCard(
                     "Kopacz i Auto EQ — najważniejsze",
                     "• Wybierz Kopacz 5/3/3 albo 6/3/3 i przypisz osobny bind uruchamiania.\n" +
                     "• Auto EQ działa wyłącznie podczas aktywnego Kopacza i wymaga aktualnej paczki zasobów oraz GUI Scale: Large.\n" +
                     "• Najpierw użyj testu wykrywania EQ, a profile reconnectu sprawdzaj etapami.\n" +
-                    "• Ten sam bind zatrzymuje Kopacza także podczas skanowania, wyrzucania, komendy i reconnectu.\n" +
-                    "• Automatyzacja działa tylko przy widocznym, aktywnym oknie Minecrafta."));
+                    "• Ten sam bind zatrzymuje Kopacza także podczas skanowania, wyrzucania, komendy i reconnectu."));
             }
             else
             {
@@ -270,14 +269,6 @@ namespace MinecraftHelper
             string previousVersion,
             string currentVersion)
         {
-#if MINER_EDITION
-            target.Children.Add(BuildInfoCard(
-                "Osobne wydanie Kopacz",
-                "• To wydanie zawiera Kopacza 5/3/3 i 6/3/3, Auto EQ, CobbleX, logi, Auto Reconnect, ochronę awaryjną i automatyzację pomocniczą.\n" +
-                "• Clickery LPM/PPM, BINDY i Auto zbroja zostały przeniesione do osobnej, lekkiej aplikacji Auto Clicker.\n" +
-                "• Kopacz nie uruchamia globalnego nasłuchu myszy używanego wcześniej przez clickery."));
-            return;
-#else
             IReadOnlyList<AppReleaseNotes> notes = ReleaseNotesCatalog.GetNotesForStartup(
                 previousVersion,
                 currentVersion,
@@ -285,12 +276,16 @@ namespace MinecraftHelper
 
             foreach (AppReleaseNotes release in notes)
             {
-                string changes = string.Join("\n", release.Changes.Select(change => "• " + change));
+                // Lista zmian jest wspólna z Auto Clickerem — tu tylko to, co dotyczy Kopacza.
+                string[] changes = release.Changes
+                    .Where(change => !change.StartsWith("Auto Clicker", StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                if (changes.Length == 0)
+                    continue;
                 target.Children.Add(BuildInfoCard(
                     $"Wersja {release.Version} — {release.Title}",
-                    changes));
+                    string.Join("\n", changes.Select(change => "• " + change))));
             }
-#endif
         }
 
         private static Border BuildInfoCard(string title, string text)

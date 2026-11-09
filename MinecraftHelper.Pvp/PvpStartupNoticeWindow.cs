@@ -98,9 +98,10 @@ internal sealed class PvpStartupNoticeWindow : Window
         var footer = new StackPanel { Margin = new Thickness(0, 14, 0, 0) };
         var confirmationBorder = new Border
         {
-            Style = GlassChrome.GetStyle("GlassInset"),
-            Background = Brushes.White
+            Style = GlassChrome.GetStyle("GlassInset")
         };
+        // Biel w jasnym motywie, jaśniejsze szkło w ciemnym.
+        confirmationBorder.SetResourceReference(Border.BackgroundProperty, "GlassRaisedBrush");
         _confirmationCheckBox = new CheckBox
         {
             Content = "Przeczytałem informacje i wiem, że szczegółowe opisy znajdują się pod przyciskami ?.",

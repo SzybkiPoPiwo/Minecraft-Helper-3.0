@@ -11,10 +11,10 @@
     <RootNamespace>MinecraftHelper</RootNamespace>
     <Product>Minecraft Helper Auto Clicker</Product>
     <ApplicationIcon>..\MinecraftHelper\Assets\autoclicker.ico</ApplicationIcon>
-    <Version>3.0</Version>
-    <AssemblyVersion>3.0.0.0</AssemblyVersion>
-    <FileVersion>3.0.0.0</FileVersion>
-    <InformationalVersion>3.0-autoclicker</InformationalVersion>
+    <Version>3.0.3</Version>
+    <AssemblyVersion>3.0.3.0</AssemblyVersion>
+    <FileVersion>3.0.3.0</FileVersion>
+    <InformationalVersion>3.0.3-autoclicker</InformationalVersion>
     <Copyright>Copyright © 2026 SzybkiPoPiwo — GNU GPL 3.0</Copyright>
   </PropertyGroup>
 
@@ -31,6 +31,7 @@
     <Compile Include="..\MinecraftHelper\OverlayHudWindow.cs" Link="OverlayHudWindow.cs" />
     <Compile Include="..\MinecraftHelper\GlassTray.cs" Link="GlassTray.cs" />
     <Compile Include="..\MinecraftHelper\UpdateAvailableWindow.cs" Link="Windows\UpdateAvailableWindow.cs" />
+    <Compile Include="..\MinecraftHelper\PracticeTutorialWindow.cs" Link="Windows\PracticeTutorialWindow.cs" />
     <Compile Include="..\MinecraftHelper\Themes\GlassPalette.cs" Link="Themes\GlassPalette.cs" />
     <Page Include="..\MinecraftHelper\Themes\GlassTheme.xaml" Link="Themes\GlassTheme.xaml" />
     <Page Include="..\MinecraftHelper\Themes\GlassAccentKoral.xaml" Link="Themes\GlassAccentKoral.xaml" />
@@ -40,6 +41,9 @@
 
   <ItemGroup>
     <Resource Include="..\MinecraftHelper\Assets\autoclicker.ico" Link="Assets\autoclicker.ico" />
+    <Resource Include="..\MinecraftHelper\Assets\autoclicker.png" Link="Assets\autoclicker.png" />
+    <!-- Zrzuty zakładek do samouczka w trybie ćwiczeń (PracticeTutorialWindow). -->
+    <Resource Include="Assets\Tutorial\*.png" />
   </ItemGroup>
 
 </Project>

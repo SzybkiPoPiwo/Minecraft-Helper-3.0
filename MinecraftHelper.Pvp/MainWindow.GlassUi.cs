@@ -24,10 +24,7 @@ public partial class MainWindow
     };
 
     private readonly List<PvpTool> _pvpTools = new();
-    private readonly Dictionary<string, TextBlock> _pvpToolSlotLabels = new();
-    private readonly Dictionary<string, RadioButton> _pvpToolButtons = new();
     private readonly List<Button> _pvpHotbarButtons = new();
-    private string _selectedPvpTool = "block";
 
     private void InitializeGlassUi()
     {
@@ -42,66 +39,124 @@ public partial class MainWindow
         _pvpTools.Add(new PvpTool("pearl", "Perła", () => CbPvpPearlSlot));
         _pvpTools.Add(new PvpTool("rod", "Wędka", () => CbPvpRodSlot));
 
-        foreach (PvpTool tool in _pvpTools)
-        {
-            var slotLabel = new TextBlock
-            {
-                FontFamily = (FontFamily)FindResource("GlassMonoFont"),
-                FontSize = 10.5,
-                Foreground = GlassPalette.Muted,
-                Margin = new Thickness(6, 0, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var content = new StackPanel { Orientation = Orientation.Horizontal };
-            content.Children.Add(new Border
-            {
-                Width = 22,
-                Height = 22,
-                CornerRadius = new CornerRadius(7),
-                Background = GlassPalette.NeutralSoft,
-                Padding = new Thickness(3),
-                Child = CreatePixelIcon(tool.Id),
-                Margin = new Thickness(0, 0, 6, 0)
-            });
-            content.Children.Add(new TextBlock { Text = tool.Label, VerticalAlignment = VerticalAlignment.Center });
-            content.Children.Add(slotLabel);
-
-            var button = new RadioButton
-            {
-                GroupName = "PvpTool",
-                Style = (Style)FindResource("GlassChoiceRadio"),
-                Content = content,
-                Margin = new Thickness(0, 0, 6, 6),
-                IsChecked = tool.Id == _selectedPvpTool
-            };
-            string toolId = tool.Id;
-            button.Checked += (_, _) =>
-            {
-                _selectedPvpTool = toolId;
-                RefreshGlassHotbar();
-            };
-            _pvpToolSlotLabels[tool.Id] = slotLabel;
-            _pvpToolButtons[tool.Id] = button;
-            PanelPvpTools.Children.Add(button);
-        }
-
+        // Pasek tylko pokazuje układ; sloty ustawia się w wierszach tabeli.
         for (int slot = 1; slot <= 9; slot++)
         {
-            int targetSlot = slot;
-            var button = new Button { Style = (Style)FindResource("HotbarSlotButton") };
-            button.Click += (_, _) => AssignSelectedPvpTool(targetSlot);
+            var button = new Button { Style = (Style)FindResource("HotbarSlotButton"), Focusable = false, IsHitTestVisible = false };
             _pvpHotbarButtons.Add(button);
             PanelPvpHotbar.Children.Add(button);
         }
 
+        IconPvpSword.Child = CreatePixelIcon("sword");
         IconPvpBlock.Child = CreatePixelIcon("block");
         IconPvpSnowball.Child = CreatePixelIcon("snow");
         IconPvpPearl.Child = CreatePixelIcon("pearl");
         IconPvpRod.Child = CreatePixelIcon("rod");
 
+        // Przy włączonym tylko AUTO PPM od razu widać jego ustawienia.
+        bool startOnRight = ChkAutoLeftEnabled.IsChecked != true && ChkAutoRightEnabled.IsChecked == true;
+        (startOnRight ? RbAutoRightTile : RbAutoLeftTile).IsChecked = true;
+        UpdateClickerPanel();
+
         RefreshGlassHotbar();
         RefreshClickerSummaries();
         RefreshAppleRepairProgress();
+    }
+
+    // ===== Kafelki AUTO LPM / PPM =====
+
+    private FrameworkElement? _clickerShownPanel;
+    private bool _autoLeftMoreOpen;
+    private FrameworkElement? _revealedBindActions;
+
+    private void ClickerTile_Checked(object sender, RoutedEventArgs e) => UpdateClickerPanel();
+
+    private void UpdateClickerPanel()
+    {
+        if (GridClickerPanelHost == null || RbAutoLeftTile == null || RbAutoRightTile == null)
+            return;
+
+        bool left = RbAutoLeftTile.IsChecked == true;
+        bool enabled = (left ? ChkAutoLeftEnabled : ChkAutoRightEnabled).IsChecked == true;
+        TxtClickerPanelOff.Text = $"{(left ? "AUTO LPM" : "AUTO PPM")} jest wyłączony. Włącz go przełącznikiem w kafelku.";
+        FrameworkElement next = !enabled ? TxtClickerPanelOff : left ? PanelAutoLeftContent : PanelAutoRightContent;
+        if (ReferenceEquals(next, _clickerShownPanel))
+            return;
+
+        FrameworkElement? previous = _clickerShownPanel;
+        _clickerShownPanel = next;
+        GlassMotion.Swap(GridClickerPanelHost, previous, next, animate: !_isLoadingUi && IsLoaded);
+    }
+
+    private void BtnAutoLeftMore_Click(object sender, RoutedEventArgs e)
+    {
+        _autoLeftMoreOpen = !_autoLeftMoreOpen;
+        TxtAutoLeftMoreArrow.Text = _autoLeftMoreOpen ? "▾" : "▸";
+        GlassMotion.SetExpanded(PanelAutoLeftMore, _autoLeftMoreOpen, animate: IsLoaded);
+    }
+
+    // Wartość CPS jest przyciskiem: pola do wpisywania pokazują się dopiero na żądanie.
+    private void BtnCpsValue_Click(object sender, RoutedEventArgs e)
+    {
+        FrameworkElement boxes = sender is Button { Tag: "Right" } ? PanelAutoRightCpsBoxes : PanelAutoLeftCpsBoxes;
+        GlassMotion.SetExpanded(boxes, boxes.Visibility != Visibility.Visible, animate: IsLoaded);
+    }
+
+    // Gdy wybrano już klawisz, Zapisz nie może zniknąć po zjechaniu myszą z pola.
+    private void ShowBindActions(TextBox box)
+    {
+        HideBindActions();
+        if (box.Parent is Panel parent && parent.Children.OfType<FrameworkElement>().FirstOrDefault(child => child is not TextBox) is { } actions)
+        {
+            actions.Tag = "open";
+            _revealedBindActions = actions;
+        }
+    }
+
+    private void HideBindActions()
+    {
+        if (_revealedBindActions != null)
+            _revealedBindActions.Tag = null;
+        _revealedBindActions = null;
+    }
+
+    private void ApplyClickerTileGlow(RadioButton tile, bool running)
+    {
+        if (!running)
+        {
+            if (tile.Effect != null)
+                tile.Effect = null;
+            return;
+        }
+
+        var color = (Color)FindResource("GlassAccentColor");
+        if (tile.Effect is not System.Windows.Media.Effects.DropShadowEffect current || current.Color != color)
+            tile.Effect = new System.Windows.Media.Effects.DropShadowEffect { Color = color, BlurRadius = 22, ShadowDepth = 4, Direction = 270, Opacity = 0.4 };
+    }
+
+    // Slot zajęty przez inny przedmiot: oba zamieniają się miejscami.
+    private bool _syncingPvpSlots;
+
+    private void PvpSlotCombo_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_isLoadingUi && !_syncingPvpSlots && sender is ComboBox box && box.SelectedIndex >= 0 && e.RemovedItems.Count == 1)
+        {
+            int previous = box.Items.IndexOf(e.RemovedItems[0]);
+            _syncingPvpSlots = true;
+            try
+            {
+                foreach (PvpTool tool in _pvpTools)
+                {
+                    if (!ReferenceEquals(tool.Slot(), box) && tool.Slot().SelectedIndex == box.SelectedIndex)
+                        tool.Slot().SelectedIndex = previous;
+                }
+            }
+            finally
+            {
+                _syncingPvpSlots = false;
+            }
+        }
+        PvpQuickActionSetting_Changed(sender, e);
     }
 
     partial void OnAutoArmorCalibrationRefreshed(int configured, int total, bool calibrating)
@@ -141,24 +196,7 @@ public partial class MainWindow
         TxtVersionPill.Foreground = GlassPalette.Warn;
         PillVersion.Background = GlassPalette.WarnSoft;
 
-        var dialog = new UpdateAvailableWindow(update) { Owner = this };
-        dialog.ShowDialog();
-    }
-
-    private void AssignSelectedPvpTool(int slot)
-    {
-        PvpTool? selected = _pvpTools.Find(tool => tool.Id == _selectedPvpTool);
-        if (selected == null)
-            return;
-
-        int previousSlot = GetPvpQuickActionSelectedSlot(selected.Slot(), 1);
-        foreach (PvpTool tool in _pvpTools)
-        {
-            if (tool != selected && GetPvpQuickActionSelectedSlot(tool.Slot(), 1) == slot)
-                tool.Slot().SelectedIndex = previousSlot - 1;
-        }
-        selected.Slot().SelectedIndex = slot - 1;
-        RefreshGlassHotbar();
+        ShowUpdateDialog(update);
     }
 
     private void RefreshGlassHotbar()
@@ -170,18 +208,14 @@ public partial class MainWindow
         foreach (PvpTool tool in _pvpTools)
         {
             int slot = GetPvpQuickActionSelectedSlot(tool.Slot(), 1);
-            if (!toolBySlot.ContainsKey(slot) || tool.Id == _selectedPvpTool)
-                toolBySlot[slot] = tool.Id;
-            _pvpToolSlotLabels[tool.Id].Text = slot.ToString(CultureInfo.InvariantCulture);
+            toolBySlot.TryAdd(slot, tool.Id);
         }
 
-        var accent = (Brush)FindResource("GlassAccentSolidBrush");
         for (int index = 0; index < _pvpHotbarButtons.Count; index++)
         {
             int slot = index + 1;
             Button button = _pvpHotbarButtons[index];
             bool hasTool = toolBySlot.TryGetValue(slot, out string? toolId);
-            bool selected = hasTool && toolId == _selectedPvpTool;
 
             var cell = new Grid();
             cell.Children.Add(new TextBlock
@@ -202,9 +236,7 @@ public partial class MainWindow
 
             button.Content = cell;
             button.Background = new SolidColorBrush(Color.FromArgb(hasTool ? (byte)0x1F : (byte)0x12, 0xFF, 0xFF, 0xFF));
-            button.BorderBrush = selected ? accent : new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
-            string label = hasTool && toolId != null ? _pvpTools.Find(tool => tool.Id == toolId)!.Label : "pusty";
-            button.ToolTip = $"Slot {slot}: {label}";
+            button.BorderBrush = new SolidColorBrush(Color.FromArgb(0x1F, 0xFF, 0xFF, 0xFF));
         }
 
         int swordSlot = GetPvpQuickActionSelectedSlot(CbPvpSwordSlot, 1);
@@ -222,13 +254,13 @@ public partial class MainWindow
         if (TxtAutoLeftSummary == null || TxtAutoRightSummary == null)
             return;
 
-        UpdateClickerSummary(ChkAutoLeftEnabled, CbAutoLeftMode, TxtAutoLeftMinCps, TxtAutoLeftMaxCps, TxtAutoLeftSummary, SliderAutoLeftCps, TxtAutoLeftScaleMid, TxtAutoLeftScaleMax, TxtAutoLeftModeHint);
-        UpdateClickerSummary(ChkAutoRightEnabled, CbAutoRightMode, TxtAutoRightMinCps, TxtAutoRightMaxCps, TxtAutoRightSummary, SliderAutoRightCps, TxtAutoRightScaleMid, TxtAutoRightScaleMax, TxtAutoRightModeHint);
+        UpdateClickerSummary(ChkAutoLeftEnabled, CbAutoLeftMode, TxtAutoLeftKey, TxtAutoLeftMinCps, TxtAutoLeftMaxCps, TxtAutoLeftSummary, TxtAutoLeftCpsValue, SliderAutoLeftCps, TxtAutoLeftScaleMid, TxtAutoLeftScaleMax, TxtAutoLeftModeHint);
+        UpdateClickerSummary(ChkAutoRightEnabled, CbAutoRightMode, TxtAutoRightKey, TxtAutoRightMinCps, TxtAutoRightMaxCps, TxtAutoRightSummary, TxtAutoRightCpsValue, SliderAutoRightCps, TxtAutoRightScaleMid, TxtAutoRightScaleMax, TxtAutoRightModeHint);
     }
 
-    private static void UpdateClickerSummary(CheckBox enabled, ComboBox mode, TextBox minBox, TextBox maxBox, TextBlock summary, GlassRangeSlider slider, TextBlock scaleMid, TextBlock scaleMax, TextBlock? modeHint)
+    private static void UpdateClickerSummary(CheckBox enabled, ComboBox mode, TextBox keyBox, TextBox minBox, TextBox maxBox, TextBlock summary, TextBlock cpsValue, GlassRangeSlider slider, TextBlock scaleMid, TextBlock scaleMax, TextBlock? modeHint)
     {
-        if (summary == null || slider == null || minBox == null || maxBox == null || scaleMid == null || scaleMax == null)
+        if (summary == null || slider == null || minBox == null || maxBox == null || scaleMid == null || scaleMax == null || cpsValue == null || keyBox == null)
             return;
 
         int min = ParseCps(minBox.Text);
@@ -238,7 +270,16 @@ public partial class MainWindow
         int top = slider.IsDragging
             ? (int)slider.Maximum
             : max <= 20 ? 20 : (int)Math.Ceiling(max / 10.0) * 10;
-        string modeName = (mode?.SelectedItem as ComboBoxItem)?.Content as string ?? "Tryb";
+        string modeName = ((mode?.SelectedItem as ComboBoxItem)?.Tag as string) switch
+        {
+            "Hold" => "Trzymanie",
+            "Combo" => "Bind + przycisk",
+            "PhysicalToggle" => "Aktywacja",
+            "DoubleClick" => "Podwójne kliknięcie",
+            _ => "Przełączanie"
+        };
+        string key = string.IsNullOrWhiteSpace(keyBox.Text) ? "Brak bindu" : keyBox.Text.Trim();
+        cpsValue.Text = $"{min}–{max} CPS";
         if (modeHint != null)
         {
             modeHint.Text = ((mode?.SelectedItem as ComboBoxItem)?.Tag as string) switch
@@ -253,7 +294,7 @@ public partial class MainWindow
         bool doubleClick = ((mode?.SelectedItem as ComboBoxItem)?.Tag as string) == "DoubleClick";
         summary.Text = enabled?.IsChecked != true
             ? "Wyłączony"
-            : doubleClick ? modeName : $"{modeName} · {min}–{max} CPS";
+            : doubleClick ? $"{key} · {modeName}" : $"{key} · {modeName} · {min}–{max} CPS";
         scaleMid.Text = (top / 2).ToString(CultureInfo.InvariantCulture);
         scaleMax.Text = top.ToString(CultureInfo.InvariantCulture);
         slider.Maximum = top;

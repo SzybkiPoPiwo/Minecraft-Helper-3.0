@@ -20,6 +20,9 @@ namespace MinecraftHelper
             new PropertyMetadata(true, (d, _) => ((GlassBlobBackground)d).UpdateAnimation()));
 
         private readonly (Ellipse Shape, TranslateTransform Shift, double Dx, double Dy, double Seconds)[] _blobs;
+        // Plamy leżą na Canvas, nie bezpośrednio w Grid: Grid przycina dziecko większe od swojej
+        // komórki (layout clip), co na szerokich oknach dawało twardą poziomą krawędź tła.
+        private readonly Canvas _surface = new();
         private bool _animating;
 
         public GlassBlobBackground()
@@ -32,8 +35,9 @@ namespace MinecraftHelper
                 CreateBlob("GlassBlob2Color", HorizontalAlignment.Right, VerticalAlignment.Top, 0.2, 0.0, -120, 110, 29),
                 CreateBlob("GlassBlob3Color", HorizontalAlignment.Center, VerticalAlignment.Bottom, 0.05, 0.3, 160, -80, 34)
             };
+            Children.Add(_surface);
             foreach (var blob in _blobs)
-                Children.Add(blob.Shape);
+                _surface.Children.Add(blob.Shape);
 
             SizeChanged += (_, _) => LayoutBlobs();
             Loaded += (_, _) => { RefreshColors(); UpdateAnimation(); };
@@ -90,12 +94,29 @@ namespace MinecraftHelper
             double width = Math.Max(1, ActualWidth);
             double height = Math.Max(1, ActualHeight);
             double size = Math.Max(width, height) * 0.85;
+            double blobHeight = size * 0.78;
             foreach (var blob in _blobs)
             {
+                // To samo położenie, co dawniej wyrównanie + przesunięcie o ułamek okna, tylko liczone
+                // wprost (bez komórki Grid, która ucinała plamę).
                 var offset = (Point)blob.Shape.Tag;
+                double shiftX = offset.X * width, shiftY = offset.Y * height;
+                double left = blob.Shape.HorizontalAlignment switch
+                {
+                    HorizontalAlignment.Right => width - size + shiftX,
+                    HorizontalAlignment.Center => (width - size) / 2 + shiftX,
+                    _ => shiftX
+                };
+                double top = blob.Shape.VerticalAlignment switch
+                {
+                    VerticalAlignment.Bottom => height - blobHeight + shiftY,
+                    VerticalAlignment.Center => (height - blobHeight) / 2 + shiftY,
+                    _ => shiftY
+                };
                 blob.Shape.Width = size;
-                blob.Shape.Height = size * 0.78;
-                blob.Shape.Margin = new Thickness(offset.X * width, offset.Y * height, -offset.X * width, -offset.Y * height);
+                blob.Shape.Height = blobHeight;
+                Canvas.SetLeft(blob.Shape, left);
+                Canvas.SetTop(blob.Shape, top);
             }
         }
 

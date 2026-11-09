@@ -29,6 +29,9 @@ internal sealed class RelativeScreenPointSetting
 internal sealed class PvpSettings
 {
     public string LastAcknowledgedVersion { get; set; } = string.Empty;
+    public bool TutorialSeen { get; set; }
+    // Wersja, o ktorej okno aktualizacji ma nie przypominac (przycisk "Pomin te wersje").
+    public string SkippedUpdateVersion { get; set; } = string.Empty;
     public MacroButton AutoLeftButton { get; set; } = new();
     public MacroButton AutoRightButton { get; set; } = new();
     public bool AutoLeftComboMode { get; set; }
@@ -53,7 +56,11 @@ internal sealed class PvpSettings
     public bool OverlayHudEnabled { get; set; }
     public string OverlayCorner { get; set; } = "BottomRight";
     public string GlassAccent { get; set; } = "koral";
+    // Motyw: "light", "dark" albo "system" (jak tryb aplikacji w Windows). Nowa instalacja startuje w jasnym.
+    public string ThemeMode { get; set; } = "light";
     public string ChatOpenKey { get; set; } = "T";
+
+    public string PanicBind { get; set; } = string.Empty;
 
     public bool AutoGuardEnabled { get; set; }
     public string AutoGuardBind { get; set; } = string.Empty;

@@ -22,30 +22,39 @@ public partial class MainWindow
 {
     private DispatcherTimer? _glassUiTimer;
     private MultiAccountPanel? _multiAccountPanel;
-    private MiningLogsPanel? _miningLogsPanel;
     private bool _syncingGlassControls;
 
     private void InitializeGlassUi()
     {
         InitializeKopacz633AreaEditor();
+        InitializeKopaczModeTiles();
         InitializeDeveloperMenu();
         TxtAppVersion.Text = $"Minecraft Helper {_currentAppVersion}";
         TxtAboutVersion.Text = $"Minecraft Helper — Kopacz {_currentAppVersion}";
         RefreshGlassAccountInfo();
 
         string accent = GlassAccents.Normalize(_settings.GlassAccent);
+        string themeMode = GlassThemeMode.Normalize(_settings.ThemeMode);
+        _settings.ThemeMode = themeMode;
         _syncingGlassControls = true;
         try
         {
             RbAccentIris.IsChecked = accent == "iris";
             RbAccentKoral.IsChecked = accent == "koral";
             RbAccentOcean.IsChecked = accent == "ocean";
+            RbThemeLight.IsChecked = themeMode == GlassThemeMode.Light;
+            RbThemeDark.IsChecked = themeMode == GlassThemeMode.Dark;
+            RbThemeSystem.IsChecked = themeMode == GlassThemeMode.System;
         }
         finally
         {
             _syncingGlassControls = false;
         }
+        GlassThemeMode.Apply(themeMode);
         GlassAccents.Apply(accent);
+        // Zmiana motywu — z przełącznika albo sama, gdy „Jak w Windows” i system zmieni tryb.
+        GlassThemeMode.Changed += OnGlassThemeChanged;
+        Closed += (_, _) => GlassThemeMode.Changed -= OnGlassThemeChanged;
 
         CbKopacz633Direction.SelectionChanged += (_, _) => SyncKopacz633DirectionRadios();
         SyncKopacz633DirectionRadios();
@@ -93,13 +102,12 @@ public partial class MainWindow
         if (tab == TabAccounts && _multiAccountPanel == null)
         {
             _multiAccountPanel = new MultiAccountPanel(_accountProfileId);
+            _multiAccountPanel.LogsRequested += OpenMiningLogsWindow;
+            RegisterName(MinerWhatsNewTargets.AccountsLogsButton, _multiAccountPanel.LogsButton);
             HostAccounts.Content = _multiAccountPanel;
         }
-        else if (tab == TabLogs && _miningLogsPanel == null)
-        {
-            _miningLogsPanel = new MiningLogsPanel(_miningLogService, _accountProfileId);
-            HostLogs.Content = _miningLogsPanel;
-        }
+        AttachTabTutorialButtons();
+        OnWhatsNewTabVisited(tab.Name);
 
         MainTabControl.SelectedItem = tab;
         if (tab == TabSettings)
@@ -107,14 +115,14 @@ public partial class MainWindow
             RefreshResourcePackStatus(); // czyta pliki gry — tylko przy wejściu, nie w cyklicznym odświeżaniu
             RenderDeveloperLog();
         }
-        // Konta i Logi dotyczą wszystkich kont, więc pasek wybranego konta byłby tam mylący.
-        BorderAccountBar.Visibility = tab == TabAccounts || tab == TabLogs ? Visibility.Collapsed : Visibility.Visible;
+        // Konta i Discord dotyczą wszystkich kont, więc pasek wybranego konta byłby tam mylący.
+        BorderAccountBar.Visibility = tab == TabAccounts || tab == TabDiscord ? Visibility.Collapsed : Visibility.Visible;
         RefreshGlassUi();
     }
 
     private void NavigateToSection(string tabName)
     {
-        foreach (RadioButton item in new[] { NavAccounts, NavLogs, NavKopacz, NavInventory, NavProtection, NavBackground, NavTools, NavSettings })
+        foreach (RadioButton item in new[] { NavAccounts, NavDiscord, NavKopacz, NavInventory, NavGoldDeposit, NavEnderchest, NavProtection, NavBackground, NavTools, NavSettings })
         {
             if (item.Tag as string == tabName)
             {
@@ -179,6 +187,7 @@ public partial class MainWindow
 
     private void OnPageScrollChanged(object sender, ScrollChangedEventArgs e)
     {
+        OnSpotlightPageScrolled();
         if (_pageScroller == null)
             FindPageScroller();
         else if (ReferenceEquals(e.OriginalSource, _pageScroller))
@@ -308,6 +317,32 @@ public partial class MainWindow
         BorderProtectionFlowEnd.Background = returnAfterAlarm ? GlassPalette.OkSoft : GlassPalette.NeutralSoft;
     }
 
+    private void ThemeMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_syncingGlassControls || sender is not RadioButton { Tag: string mode })
+            return;
+
+        _settings.ThemeMode = GlassThemeMode.Normalize(mode);
+        GlassThemeMode.Apply(mode);
+        MarkDirty();
+    }
+
+    // Kontrolki z XAML przemalowują się same (DynamicResource), a pędzle z palety zmieniają kolor
+    // w miejscu; tu odświeżamy tylko to, co kod wylicza z kolorów: tło z plamami, HUD i podsumowania.
+    private void OnGlassThemeChanged()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(new Action(OnGlassThemeChanged));
+            return;
+        }
+        CyberBackground.RefreshColors();
+        GlassChrome.ApplyTitleBar(this);
+        PositionSpotlight();
+        RefreshOverlayHud(DateTime.UtcNow);
+        RefreshGlassUi();
+    }
+
     private void AccentSwatch_Checked(object sender, RoutedEventArgs e)
     {
         if (_syncingGlassControls || sender is not RadioButton { Tag: string accent })
@@ -336,7 +371,7 @@ public partial class MainWindow
             RefreshInventorySummaries();
         else if (IsGlassSectionActive(TabBackground))
             RefreshBackgroundStates(status);
-        else if (IsGlassSectionActive(TabSettings))
+        else if (IsGlassSectionActive(TabDiscord))
             RefreshDiscordStatus();
     }
 
@@ -422,18 +457,39 @@ public partial class MainWindow
 
     private void RefreshInventorySummaries()
     {
-        int slots = GetSelectedInventoryCleanupSlots().Count;
+        string slotSummary = GetInventorySlotSummary();
         int types = GetSelectedInventoryCleanupItemTypes().Count;
         bool all = ChkInventoryCleanupAllItemTypes.IsChecked == true;
         bool gold = ChkGoldDepositEnabled.IsChecked == true;
-        TxtSlotsCount.Text = $"{slots} z 27";
+        TxtSlotsCount.Text = slotSummary;
         TxtItemTypesCount.Text = all ? "tryb: wszystko poza cobblestone" : $"{types} wybranych";
-        TxtPipeScanSummary.Text = $"{slots} z 27 slotów · hotbar pomijany";
-        TxtPipeDropSummary.Text = (all ? "Wszystko poza cobblestone" : $"{types} typów przedmiotów") + " · całe stacki (Ctrl + Q)";
-        TxtPipeGoldSummary.Text = gold
-            ? $"{(string.IsNullOrWhiteSpace(TxtGoldDepositCommand.Text) ? "brak komendy" : TxtGoldDepositCommand.Text.Trim())} · pole {TxtGoldDepositSelectedSlot.Text.Split(' ')[0]}"
-            : "Wyłączona";
+        bool cobbleX = ChkCobbleXEnabled.IsChecked == true;
+        bool food = ChkInventoryCleanupEatAfterCleanup.IsChecked == true;
+        TxtPipeScanSummary.Text = slotSummary;
+        TxtPipeDropSummary.Text = GetInventoryDropSummary();
+        TxtPipeCobbleXSummary.Text = cobbleX ? $"próg: {TxtCobbleXRequiredStacks.Text.Trim()} st." : "wyłączony";
+        TxtPipeGoldSummary.Text = !gold
+            ? "wyłączona"
+            : string.IsNullOrWhiteSpace(TxtGoldDepositCommand.Text) ? "brak komendy" : TxtGoldDepositCommand.Text.Trim();
+        TxtPipeFoodSummary.Text = food ? "slot 2, 4 s" : "wyłączone";
+        bool enderchest = ChkEnderchestEnabled.IsChecked == true;
+        TxtPipeEnderchestSummary.Text = !enderchest ? "wyłączony" : _enderchestFull ? "pełny" : $"wybrane: {EnderchestOptionsFromUi().ItemTypes.Count}";
+        BorderPipeEnderchest.Opacity = enderchest ? 1 : 0.5;
+        // Pominięte kroki przygaszone — pasek od razu pokazuje, co faktycznie się wykona.
+        BorderPipeCobbleX.Opacity = cobbleX ? 1 : 0.5;
+        BorderPipeGold.Opacity = gold ? 1 : 0.5;
+        BorderPipeFood.Opacity = food ? 1 : 0.5;
         TxtGoldProtectedHint.Visibility = gold ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private bool _inventoryGameSetupOpen;
+
+    // „Jak ustawić?”: kroki w Minecrafcie są potrzebne raz, więc domyślnie zwinięte.
+    private void BtnInventoryGameSetup_Click(object sender, RoutedEventArgs e)
+    {
+        _inventoryGameSetupOpen = !_inventoryGameSetupOpen;
+        SetExpandableSectionState(PanelInventoryGameSetupDetails, _inventoryGameSetupOpen);
+        PathInventoryGameSetupChevron.Data = Geometry.Parse(_inventoryGameSetupOpen ? "M6,9 L12,15 L18,9" : "M9,6 L15,12 L9,18");
     }
 
     private void RefreshBackgroundStates(MinerRemoteStatus status)
@@ -466,7 +522,7 @@ public partial class MainWindow
 
     private static void StyleBackgroundState(Border border, bool active)
     {
-        border.Background = active ? GlassPalette.AccentSoft : new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
+        border.Background = active ? GlassPalette.AccentSoft : GlassPalette.Surface;
         border.BorderBrush = active ? GlassPalette.AccentSolid : GlassPalette.Line;
         border.BorderThickness = new Thickness(active ? 2 : 1);
     }

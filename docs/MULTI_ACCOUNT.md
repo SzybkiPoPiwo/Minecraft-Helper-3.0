@@ -159,8 +159,8 @@ Klient przerywa rozmowę po 5 s, więc zawieszony Kopacz nie blokuje panelu.
 ## Bot Discord
 
 Model: **bot lokalny** — użytkownik tworzy własną aplikację Discord i wkleja jej token
-w Ustawieniach → Bot Discord. Nie ma serwera pośredniego. Przycisk **Jak skonfigurować?**
-w karcie otwiera poradnik krok po kroku (`DiscordSetupGuideWindow`) z linkiem do Developer
+w zakładce Discord. Nie ma serwera pośredniego. Przycisk **Jak skonfigurować?**
+w tej zakładce otwiera poradnik krok po kroku (`DiscordSetupGuideWindow`) z linkiem do Developer
 Portal i przyciskiem kopiującym link zaproszenia: ID aplikacji pochodzi z zapisanego tokenu,
 uprawnienia to `101376` (wyświetlanie kanałów, wysyłanie wiadomości, pliki, historia czatu).
 
@@ -198,7 +198,7 @@ uprawnienia to `101376` (wyświetlanie kanałów, wysyłanie wiadomości, pliki,
 | `!join [konto] [tryb]` | wejście na serwer przebiegiem Auto Reconnect (lista serwerów, Direct Connect, `/home`, kontrola EQ), potem start kopania jak `!start`. Wymaga profilu powrotu i — gdy gra nie jest na wierzchu — kopania w tle. Bez nazwy: jedyne pasujące konto; `!join wszystkie`. Wynik (start albo powód przerwania) przychodzi od konta |
 | `!leave [konto]` | zatrzymanie kopania i wyjście z serwera (ESC → Disconnect); przerywa też trwający reconnect. Wynik przychodzi od konta |
 
-Każdą komendę poza `!pomoc` można wyłączyć w `Ustawienia` → `Bot Discord` → `Włącz / wyłącz komendy`. Lista wyłączonych trafia do `discord.json` (`DisabledCommands`); bot odpowiada na nie „Komenda wyłączona” i pomija je w `!pomoc`.
+Każdą komendę poza `!pomoc` można wyłączyć w zakładce `Discord` → `Komendy` → `Włącz / wyłącz komendy`. Lista wyłączonych trafia do `discord.json` (`DisabledCommands`); bot odpowiada na nie „Komenda wyłączona” i pomija je w `!pomoc`.
 
 Wpisywanie komend gry z Discorda jest celowo niedostępne.
 

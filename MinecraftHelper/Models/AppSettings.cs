@@ -35,6 +35,10 @@ namespace MinecraftHelper.Models
     public class AppSettings
     {
         public string LastAcknowledgedVersion { get; set; } = "";
+        // Wersja, o której okno aktualizacji ma nie przypominać („Pomiń tę wersję”).
+        public string SkippedUpdateVersion { get; set; } = "";
+        // Samouczek w trybie ćwiczeń był już pokazany (przejście albo pominięcie) — nie wraca sam.
+        public bool TutorialSeen { get; set; }
 
         public bool Kopacz533Enabled { get; set; }
         public string Kopacz533Key { get; set; } = "";
@@ -76,6 +80,11 @@ namespace MinecraftHelper.Models
         public bool GoldDepositIngots { get; set; } = true;
         public bool GoldDepositBlocks { get; set; } = true;
         public bool GoldDepositIncludeHotbar { get; set; } = true;
+        public bool EnderchestEnabled { get; set; }
+        public string EnderchestCommand { get; set; } = "/ec";
+        public string EnderchestMenuTitle { get; set; } = "Ender Chest";
+        public int EnderchestOpenDelayMs { get; set; } = 1000;
+        public List<string> EnderchestItemTypes { get; set; } = new List<string>();
         public string CobbleXCommand { get; set; } = "/cx";
         public int CobbleXRequiredFullStacks { get; set; } = 9;
         public bool TestAutoFishingEnabled { get; set; }
@@ -115,6 +124,8 @@ namespace MinecraftHelper.Models
         public bool OverlayAnimationsEnabled { get; set; }
         public bool AnimatedBackgroundEnabled { get; set; } = true;
         public string GlassAccent { get; set; } = "iris";
+        // Motyw: "light", "dark" albo "system" (jak tryb aplikacji w Windows). Nowa instalacja startuje w jasnym.
+        public string ThemeMode { get; set; } = "light";
         public string ChatOpenKey { get; set; } = "T";
         public string DropItemKey { get; set; } = "Q";
         public int OverlayMonitorIndex { get; set; }

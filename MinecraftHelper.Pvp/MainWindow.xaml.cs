@@ -128,6 +128,7 @@ public partial class MainWindow : Window
         SpaceSpam,
         FreezeWindow,
         LagSwitch,
+        Panic,
         SneakKey
     }
 
@@ -196,6 +197,7 @@ public partial class MainWindow : Window
                 _settings.LastAcknowledgedVersion,
                 _currentAppVersion,
                 StringComparison.OrdinalIgnoreCase);
+        PrepareStartupTutorial();
 
         _runtimeTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -241,7 +243,12 @@ public partial class MainWindow : Window
         ApplyGlassTitleBar();
         Activate();
 
-        if (_showStartupNotice)
+        bool tutorialShown = _tutorialPending;
+        if (_tutorialPending)
+            await Dispatcher.InvokeAsync(RunStartupTutorial, DispatcherPriority.ApplicationIdle);
+
+        // Nowa instalacja: samouczek zastępuje „Co nowego”. Po aktualizacji lista zmian pokaże się po nim.
+        if (_showStartupNotice && !(tutorialShown && _isFirstRun))
         {
             await Dispatcher.InvokeAsync(
                 ShowStartupNotice,
@@ -256,15 +263,36 @@ public partial class MainWindow : Window
         AppUpdateInfo? update = await UpdateCheckService.CheckForUpdateAsync(_currentAppVersion);
         if (update == null || !IsVisible || _allowApplicationExit)
             return;
+        // „Pomiń tę wersję”: przy starcie nie przypominamy, dopóki nie wyjdzie kolejna.
+        if (string.Equals(update.LatestVersion, _settings.SkippedUpdateVersion, StringComparison.OrdinalIgnoreCase))
+            return;
 
+        ShowUpdateDialog(update);
+        if (IsVisible)
+            Activate();
+    }
+
+    // Wspólne dla sprawdzania przy starcie i przycisku „Sprawdź aktualizacje”.
+    private void ShowUpdateDialog(AppUpdateInfo update)
+    {
         var dialog = new UpdateAvailableWindow(update)
         {
             Owner = this
         };
         dialog.ShowDialog();
+        if (!dialog.SkipRequested)
+            return;
 
-        if (IsVisible)
-            Activate();
+        try
+        {
+            _settings.SkippedUpdateVersion = update.LatestVersion;
+            _settingsService.Save(_settings);
+            UpdateStatusBar($"Pominięto wersję {update.LatestVersion} — o kolejnej program znów przypomni.", "Orange");
+        }
+        catch (Exception exception)
+        {
+            UpdateStatusBar($"Nie zapisano pominiętej wersji: {exception.Message}", "Red");
+        }
     }
 
     private void ShowStartupNotice()
@@ -379,25 +407,14 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private void ApplyGlassTitleBar()
-    {
-        IntPtr window = new WindowInteropHelper(this).Handle;
-        if (window == IntPtr.Zero)
-            return;
-
-        // Jasny pasek tytułu w kolorze tła motywu glass (kolor podpisu działa od Windows 11).
-        int disabled = 0;
-        int attribute = Environment.OSVersion.Version.Build >= 18985
-            ? DwmwaUseImmersiveDarkMode
-            : DwmwaUseImmersiveDarkModeBefore20H1;
-        _ = DwmSetWindowAttribute(window, attribute, ref disabled, sizeof(int));
-        int captionColor = 0x00F8F1EE;
-        _ = DwmSetWindowAttribute(window, DwmwaCaptionColor, ref captionColor, sizeof(int));
-    }
+    // Pasek tytułu w kolorze motywu (jasny albo ciemny) — wspólny kod z Kopaczem; przy zmianie
+    // motywu odświeża go GlassThemeMode.
+    private void ApplyGlassTitleBar() => GlassChrome.ApplyTitleBar(this);
 
     private void NormalizeSettings()
     {
         _settings.LastAcknowledgedVersion ??= string.Empty;
+        _settings.SkippedUpdateVersion ??= string.Empty;
         _settings.AutoLeftButton ??= new MacroButton();
         _settings.AutoRightButton ??= new MacroButton();
         _settings.BindyEntries ??= new List<BindyEntry>();
@@ -691,11 +708,7 @@ public partial class MainWindow : Window
 
     private void UpdateModuleVisibility()
     {
-        bool animate = !_isLoadingUi && IsLoaded;
-        if (PanelAutoLeftContent != null)
-            GlassMotion.SetExpanded(PanelAutoLeftContent, ChkAutoLeftEnabled.IsChecked == true, animate);
-        if (PanelAutoRightContent != null)
-            GlassMotion.SetExpanded(PanelAutoRightContent, ChkAutoRightEnabled.IsChecked == true, animate);
+        UpdateClickerPanel();
         RefreshClickerSummaries();
         UpdateAutoArmorEnabledState();
         UpdateAppleCutterEnabledState();
@@ -864,6 +877,7 @@ public partial class MainWindow : Window
         if (sender is not TextBox textBox || textBox.Tag is not string target)
             return;
         BeginBindCapture(target);
+        ShowBindActions(textBox);
         e.Handled = true;
     }
 
@@ -884,6 +898,7 @@ public partial class MainWindow : Window
         if (key == Key.Escape)
         {
             _activeCaptureTarget = string.Empty;
+            HideBindActions();
             UpdateStatusBar("Anulowano wybór klawisza.", "Orange");
             e.Handled = true;
             return;
@@ -948,6 +963,7 @@ public partial class MainWindow : Window
         _pendingBindValues.Remove(targetName);
         MarkDirty();
         SavePendingSettings();
+        HideBindActions();
         UpdateStatusBar($"Zapisano bind {keyText}.", "Green");
     }
 
@@ -984,6 +1000,7 @@ public partial class MainWindow : Window
         if (target == "LagSwitch")
             ReleaseLagSwitch(string.Empty);
         MarkDirty();
+        HideBindActions();
         UpdateStatusBar("Usunięto bind.", "Orange");
     }
 
@@ -1009,6 +1026,7 @@ public partial class MainWindow : Window
             "SpaceSpam" => TxtSpaceSpamBind.Text,
             "FreezeWindow" => TxtFreezeWindowBind.Text,
             "LagSwitch" => TxtLagSwitchBind.Text,
+            "Panic" => TxtPanicBind.Text,
             "SneakKey" => TxtAutoLeftSneakKey.Text,
             _ when target.StartsWith("Bindy:", StringComparison.OrdinalIgnoreCase) =>
                 _settings.BindyEntries.FirstOrDefault(entry => entry.Id == target[6..])?.Key ?? string.Empty,
@@ -1033,12 +1051,15 @@ public partial class MainWindow : Window
             case "SpaceSpam": TxtSpaceSpamBind.Text = keyText; break;
             case "FreezeWindow": TxtFreezeWindowBind.Text = keyText; break;
             case "LagSwitch": TxtLagSwitchBind.Text = keyText; break;
+            case "Panic": TxtPanicBind.Text = keyText; break;
             case "SneakKey": TxtAutoLeftSneakKey.Text = keyText; break;
             default:
                 if (target.StartsWith("Bindy:", StringComparison.OrdinalIgnoreCase))
                     RefreshBindyRows();
                 break;
         }
+        // Klawisz jest też w opisie kafelka.
+        RefreshClickerSummaries();
     }
 
     private bool HasBindConflict(string target, string key, out string owner)
@@ -1061,7 +1082,8 @@ public partial class MainWindow : Window
             ("AutoGuard", TxtAutoGuardBind.Text, "Auto Guard"),
             ("SpaceSpam", TxtSpaceSpamBind.Text, "Spam spacji"),
             ("FreezeWindow", TxtFreezeWindowBind.Text, "Zamrożenie okna"),
-            ("LagSwitch", TxtLagSwitchBind.Text, "Lag switch")
+            ("LagSwitch", TxtLagSwitchBind.Text, "Lag switch"),
+            ("Panic", TxtPanicBind.Text, "Kapitulacja")
         };
         assigned.AddRange(_settings.BindyEntries.Select(entry => ($"Bindy:{entry.Id}", entry.Key, $"BINDY: {GetBindyLabel(entry)}")));
         // Schowane funkcje (spam spacji, lag switch) nie blokują klawiszy — nie widać ich w GUI.
@@ -1106,6 +1128,7 @@ public partial class MainWindow : Window
             "SpaceSpam" => "Spam spacji",
             "FreezeWindow" => "Zamrożenie okna",
             "LagSwitch" => "Lag switch",
+            "Panic" => "Kapitulacja",
             _ when target.StartsWith("Bindy:", StringComparison.OrdinalIgnoreCase) => "BINDY",
             _ => "wybranej funkcji"
         };
@@ -1273,12 +1296,17 @@ public partial class MainWindow : Window
     private void RuntimeTimerTickCore()
     {
         DateTime now = DateTime.UtcNow;
+        // Przed bramkami bezczynności, żeby stan klawisza kapitulacji zawsze był świeży.
+        bool panicPressed = IsBindPressed(TxtPanicBind.Text, ref _panicBindWasDown);
         if (TryHandleBackgroundIdleRuntimeTick(now))
             return;
 
         TryRestoreSavedTargetWindow(now);
         bool targetFocused = UpdateTargetGameFocus();
         _isTargetFocused = targetFocused;
+        // Bez sprawdzania kursora: kapitulacja jest właśnie na otwarte GUI.
+        if (panicPressed && targetFocused)
+            StopAllMacros();
         bool cursorGuardEnabled = ChkPauseWhenCursorVisible.IsChecked == true;
         _schedulerCursorGuardEnabled = cursorGuardEnabled;
 
@@ -1417,6 +1445,7 @@ public partial class MainWindow : Window
             int rightPointerKey = UsesPhysicalPointerGate(rightMode) ? VkRightButton : 0;
             bool leftPointerReady = leftPointerKey == 0 || _physicalMouseTracker.IsButtonDown(leftPointerKey);
             bool rightPointerReady = rightPointerKey == 0 || _physicalMouseTracker.IsButtonDown(rightPointerKey);
+            _autoClickScheduler.SetRightUserHoldPause(PvpInputPolicies.PausesRightWhileUserHolds(rightMode));
             // Podwójne kliknięcie nie używa harmonogramu CPS.
             UpdateClickScheduler(
                 !blockedByCursor && leftPointerReady && _autoLeftRuntimeEnabled && ChkAutoLeftEnabled.IsChecked == true
@@ -1507,7 +1536,7 @@ public partial class MainWindow : Window
         if (now < _nextRuntimeUiRefreshUtc)
             return;
         _nextRuntimeUiRefreshUtc = now.AddMilliseconds(100);
-        bool rightPausedByAction = IsPvpQuickActionRunning;
+        bool rightPausedByAction = IsPvpQuickActionRunning || IsAutoRightPausedByUserHold();
         bool leftWaitingForPointer = _autoLeftRuntimeEnabled
             && GetSelectedMode(CbAutoLeftMode) == "PhysicalToggle"
             && !_physicalMouseTracker.IsButtonDown(VkLeftButton);
@@ -1515,8 +1544,9 @@ public partial class MainWindow : Window
             && GetSelectedMode(CbAutoRightMode) == "PhysicalToggle"
             && !_physicalMouseTracker.IsButtonDown(VkRightButton);
 
+        // Włączony moduł czeka na bind: GOTOWY. OFF znaczy wyłączony przełącznikiem.
         string leftState = !_autoLeftRuntimeEnabled
-            ? "OFF"
+            ? ChkAutoLeftEnabled.IsChecked == true ? "GOTOWY" : "OFF"
             : !targetFocused
                 ? "BRAK FOKUSU"
                 : blockedByCursor
@@ -1525,7 +1555,7 @@ public partial class MainWindow : Window
                         ? "GOTOWY"
                         : "ON";
         string rightState = !_autoRightRuntimeEnabled
-            ? "OFF"
+            ? ChkAutoRightEnabled.IsChecked == true ? "GOTOWY" : "OFF"
             : !targetFocused
                 ? "BRAK FOKUSU"
                 : blockedByCursor || rightPausedByAction
@@ -1533,10 +1563,21 @@ public partial class MainWindow : Window
                     : rightWaitingForPointer || GetSelectedMode(CbAutoRightMode) == "DoubleClick"
                         ? "GOTOWY"
                         : "ON";
-        TxtAutoLeftState.Text = leftState;
+        TxtAutoLeftState.Text = leftState == "ON" ? "KLIKA" : leftState;
         ApplyStatePill(PillAutoLeftState, TxtAutoLeftState, leftState);
-        TxtAutoRightState.Text = rightState;
+        ApplyClickerTileGlow(RbAutoLeftTile, leftState == "ON");
+        TxtAutoRightState.Text = rightState == "ON" ? "KLIKA" : rightState;
         ApplyStatePill(PillAutoRightState, TxtAutoRightState, rightState);
+        ApplyClickerTileGlow(RbAutoRightTile, rightState == "ON");
+    }
+
+    // Tylko gdy działa śledzenie myszy: sam stan przycisku miesza się z naszymi kliknięciami.
+    private bool IsAutoRightPausedByUserHold()
+    {
+        return _autoRightRuntimeEnabled
+            && _physicalMouseTracker.IsMonitoring
+            && PvpInputPolicies.PausesRightWhileUserHolds(GetSelectedMode(CbAutoRightMode))
+            && _physicalMouseTracker.IsButtonDown(VkRightButton);
     }
 
     private void HandleClickerRuntime(bool blockedByCursor)
@@ -1692,8 +1733,13 @@ public partial class MainWindow : Window
             && _physicalMouseTracker.IsButtonDown(VkLeftButton);
         bool rightPointerDown = UsesPhysicalPointerGate(rightMode)
             && _physicalMouseTracker.IsButtonDown(VkRightButton);
+        // AUTO PPM ustępuje trzymanemu PPM, więc śledzenie musi działać od pierwszego kliknięcia.
+        bool rightYieldsToHold = _autoRightRuntimeEnabled
+            && ChkAutoRightEnabled.IsChecked == true
+            && PvpInputPolicies.PausesRightWhileUserHolds(rightMode);
         bool needed = _isTargetFocused
             && (IsDoubleClickArmed()
+            || rightYieldsToHold
             || (_autoLeftRuntimeEnabled
                 && ChkAutoLeftEnabled.IsChecked == true
                 && leftPointerDown)
@@ -1730,7 +1776,8 @@ public partial class MainWindow : Window
             _autoRightRuntimeEnabled = false;
             _autoClickScheduler.StopRightImmediately();
         }
-        if (!_physicalMouseTrackerWarningShown)
+        // Bez śledzenia trybu przełączanego clicker działa dalej, tylko nie ustępuje trzymanemu PPM.
+        if (!_physicalMouseTrackerWarningShown && (UsesPhysicalPointerGate(leftMode) || UsesPhysicalPointerGate(rightMode)))
         {
             _physicalMouseTrackerWarningShown = true;
             UpdateStatusBar(
@@ -2033,32 +2080,35 @@ public partial class MainWindow : Window
         bool baseClickerPause = !_isTargetFocused
             || (ChkPauseWhenCursorVisible.IsChecked == true && _cachedCursorVisible);
         bool leftClickerPaused = baseClickerPause;
-        bool rightClickerPaused = baseClickerPause || IsPvpQuickActionRunning;
+        bool rightPausedByUserHold = IsAutoRightPausedByUserHold();
+        bool rightClickerPaused = baseClickerPause || IsPvpQuickActionRunning || rightPausedByUserHold;
         bool leftWaitingForPointer = GetSelectedMode(CbAutoLeftMode) == "PhysicalToggle"
             && !_physicalMouseTracker.IsButtonDown(VkLeftButton);
         bool rightWaitingForPointer = GetSelectedMode(CbAutoRightMode) == "PhysicalToggle"
             && !_physicalMouseTracker.IsButtonDown(VkRightButton);
-        string rightClickerPauseMessage = IsPvpQuickActionRunning
-            ? "PAUZA • szybka akcja PVP"
-            : "PAUZA • brak fokusu albo otwarte GUI";
+        string rightClickerPauseReason = IsPvpQuickActionRunning
+            ? "Szybka akcja PVP"
+            : rightPausedByUserHold && !baseClickerPause
+                ? "Trzymasz PPM"
+                : "Brak fokusu albo otwarte GUI";
         if (_autoLeftRuntimeEnabled && GetSelectedMode(CbAutoLeftMode) != "DoubleClick")
-            entries.Add(new OverlayHudEntry(
+            entries.Add(BuildClickerOverlayEntry(
                 "AUTO LPM",
-                leftClickerPaused
-                    ? "PAUZA • brak fokusu albo otwarte GUI"
-                    : leftWaitingForPointer
-                        ? "GOTOWY • trzymaj LPM"
-                        : $"ON • {ReadCps(TxtAutoLeftMinCps.Text, 10)}–{ReadCps(TxtAutoLeftMaxCps.Text, 12)} CPS",
-                leftClickerPaused ? OverlayHudTone.Warning : OverlayHudTone.Active));
+                "Lewy przycisk myszy",
+                "Trzymaj LPM",
+                leftClickerPaused,
+                "Brak fokusu albo otwarte GUI",
+                leftWaitingForPointer,
+                $"{ReadCps(TxtAutoLeftMinCps.Text, 10)}–{ReadCps(TxtAutoLeftMaxCps.Text, 12)} CPS"));
         if (_autoRightRuntimeEnabled && GetSelectedMode(CbAutoRightMode) != "DoubleClick")
-            entries.Add(new OverlayHudEntry(
+            entries.Add(BuildClickerOverlayEntry(
                 "AUTO PPM",
-                rightClickerPaused
-                    ? rightClickerPauseMessage
-                    : rightWaitingForPointer
-                        ? "GOTOWY • trzymaj PPM"
-                        : $"ON • {ReadCps(TxtAutoRightMinCps.Text, 10)}–{ReadCps(TxtAutoRightMaxCps.Text, 12)} CPS",
-                rightClickerPaused ? OverlayHudTone.Warning : OverlayHudTone.Active));
+                "Prawy przycisk myszy",
+                "Trzymaj PPM",
+                rightClickerPaused,
+                rightClickerPauseReason,
+                rightWaitingForPointer,
+                $"{ReadCps(TxtAutoRightMinCps.Text, 10)}–{ReadCps(TxtAutoRightMaxCps.Text, 12)} CPS"));
         if (IsPvpQuickActionRunning)
             entries.Add(BuildPvpQuickActionOverlayEntry());
         if (IsAppleCutterRunning)
@@ -2066,16 +2116,29 @@ public partial class MainWindow : Window
         if (IsAutoArmorRunning || _autoArmorCalibrationPending)
             entries.Add(BuildAutoArmorOverlayEntry());
         if (_bindyStage != BindyStage.None)
-            entries.Add(new OverlayHudEntry("BINDY", $"Wysyłanie: {_bindyPendingName}", OverlayHudTone.Warning));
+            entries.Add(new OverlayHudEntry("BINDY", "Wpisywanie na czacie", OverlayHudTone.Warning)
+            {
+                Icon = OverlayHudIcon.Keyboard,
+                Badge = "WYSYŁANIE",
+                BadgeColor = OverlayHudColor.Warn,
+                Headline = _bindyPendingName,
+                HeadlineColor = OverlayHudColor.Ink
+            });
         else if (!string.IsNullOrWhiteSpace(_bindyLastName) && (now - _bindyLastAtUtc).TotalSeconds < 3)
-            entries.Add(new OverlayHudEntry("BINDY", $"Wykonano: {_bindyLastName}", OverlayHudTone.Active));
+            entries.Add(new OverlayHudEntry("BINDY", "Wysłano na czat", OverlayHudTone.Active)
+            {
+                Icon = OverlayHudIcon.Keyboard,
+                Badge = "GOTOWE",
+                BadgeColor = OverlayHudColor.Ok,
+                Headline = _bindyLastName,
+                HeadlineColor = OverlayHudColor.Ink
+            });
 
         AddPvpExtrasOverlayEntries(entries);
         NormalizeAutoClickerHudEntrySizes(entries);
 
-        string signature = string.Join(
-            '\u001e',
-            entries.Select(entry => $"{entry.Title}\u001f{entry.Body}\u001f{entry.Tone}\u001f{entry.Emphasize}"));
+        // Wpis jest rekordem — ToString obejmuje też ikonę, plakietkę, dużą wartość i pasek.
+        string signature = string.Join('\u001e', entries.Select(entry => entry.ToString()));
         if (entries.Count == 0)
         {
             if (_lastOverlaySignature.Length > 0)
@@ -2106,6 +2169,38 @@ public partial class MainWindow : Window
             _lastOverlaySignature = signature;
             _overlayHud.UpdateEntries(entries);
         }
+    }
+
+    // Kafelek klikacza: ON z zakresem CPS, GOTOWY gdy czeka na przytrzymanie przycisku albo PAUZA z powodem.
+    private static OverlayHudEntry BuildClickerOverlayEntry(
+        string title,
+        string buttonName,
+        string holdHint,
+        bool paused,
+        string pauseReason,
+        bool waitingForPointer,
+        string cpsRange)
+    {
+        if (paused)
+        {
+            return new OverlayHudEntry(title, pauseReason, OverlayHudTone.Warning)
+            {
+                Icon = OverlayHudIcon.Mouse,
+                Badge = "PAUZA",
+                BadgeColor = OverlayHudColor.Warn,
+                Headline = cpsRange,
+                HeadlineColor = OverlayHudColor.Muted
+            };
+        }
+
+        return new OverlayHudEntry(title, waitingForPointer ? $"{holdHint}, aby klikać" : buttonName, OverlayHudTone.Active)
+        {
+            Icon = OverlayHudIcon.Mouse,
+            Badge = waitingForPointer ? "GOTOWY" : "ON",
+            BadgeColor = waitingForPointer ? OverlayHudColor.Info : OverlayHudColor.Ok,
+            Headline = cpsRange,
+            HeadlineColor = waitingForPointer ? OverlayHudColor.Ink : OverlayHudColor.Accent
+        };
     }
 
     private static void NormalizeAutoClickerHudEntrySizes(List<OverlayHudEntry> entries)

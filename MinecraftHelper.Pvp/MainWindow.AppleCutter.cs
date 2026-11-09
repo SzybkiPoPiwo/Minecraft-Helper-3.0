@@ -460,8 +460,23 @@ public partial class MainWindow
             or AppleCutterStage.RepairTypeCommand
             or AppleCutterStage.RepairSubmit
             or AppleCutterStage.RepairCooldown;
-        string repairDetail = repairingNow ? "naprawa teraz" : $"naprawa za: {nextRepair}";
-        string detail = $"{stage} • użycia: {_appleCutterCyclesCompleted} • {repairDetail}";
-        return new OverlayHudEntry("ŚCINANIE JABŁEK", detail, OverlayHudTone.Warning);
+        // „NOŻYCE • wybór slotu” → plakietka NOŻYCE i duża wartość „Wybór slotu”.
+        int split = stage.IndexOf(" • ", StringComparison.Ordinal);
+        string badge = split > 0 ? stage.Substring(0, split) : stage;
+        string action = split > 0 ? stage.Substring(split + 3) : "Czeka na start";
+        action = char.ToUpper(action[0], CultureInfo.CurrentCulture) + action.Substring(1);
+        string repairDetail = repairingNow ? "Naprawa teraz" : $"Naprawa za {nextRepair} użyć";
+        // Pasek pokazuje drogę do kolejnej naprawy nożyc.
+        double repairFraction = repairingNow ? 1 : (double)(repairEvery - nextRepair) / repairEvery;
+        return new OverlayHudEntry("ŚCINANIE JABŁEK", $"Użycia: {_appleCutterCyclesCompleted} · {repairDetail}", OverlayHudTone.Warning)
+        {
+            Icon = OverlayHudIcon.Apple,
+            Badge = badge,
+            BadgeColor = OverlayHudColor.Warn,
+            Headline = action,
+            HeadlineColor = OverlayHudColor.Ink,
+            Progress = OverlayHudProgress.Fixed(repairFraction),
+            ProgressColor = repairingNow ? OverlayHudColor.Ok : OverlayHudColor.Info
+        };
     }
 }

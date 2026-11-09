@@ -53,6 +53,11 @@ internal static class PvpInputPolicies
         return AutoGuardDecision.Tap;
     }
 
+    // AUTO PPM yields to a physically held PPM (eating, blocking, using an item) and resumes
+    // on release. Modes where holding PPM is what makes it click cannot do that.
+    public static bool PausesRightWhileUserHolds(string mode) =>
+        mode is not ("Combo" or "PhysicalToggle" or "DoubleClick");
+
     // WinDivert filter that holds back the game's outgoing data packets while
     // letting small keep-alive/ACK segments through, so the connection survives.
     public static string BuildLagSwitchFilter(IEnumerable<int> remotePorts)

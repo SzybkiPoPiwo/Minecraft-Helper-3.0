@@ -147,7 +147,9 @@ public partial class MainWindow
         if (PanelGoldDepositSettings == null) return;
         bool enabled = ChkInventoryCleanupEnabled.IsChecked == true && ChkGoldDepositEnabled.IsChecked == true;
         PanelGoldDepositSettings.IsEnabled = enabled;
-        PanelGoldDepositSettings.Visibility = ChkGoldDepositEnabled.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        SetExpandableSectionState(PanelGoldDepositSettings, ChkGoldDepositEnabled.IsChecked == true);
+        if (BorderGoldNeedsAutoEq != null)
+            BorderGoldNeedsAutoEq.Visibility = ChkInventoryCleanupEnabled.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
         UpdateGoldDepositTestButtons();
     }
 

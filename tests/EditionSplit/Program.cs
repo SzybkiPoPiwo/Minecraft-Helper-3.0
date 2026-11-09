@@ -61,8 +61,9 @@ internal static class Program
                 && autoClickerModels.Contains("AutoLeftPhysicalToggleMode", StringComparison.Ordinal)
                 && autoClickerModels.Contains("AutoRightPhysicalToggleMode", StringComparison.Ordinal)
                 && autoClickerWindow.Contains("case \"PhysicalToggle\":", StringComparison.Ordinal)
-                && autoClickerWindow.Contains("GOTOWY • trzymaj LPM", StringComparison.Ordinal)
-                && autoClickerWindow.Contains("GOTOWY • trzymaj PPM", StringComparison.Ordinal),
+                && autoClickerWindow.Contains("\"Trzymaj LPM\"", StringComparison.Ordinal)
+                && autoClickerWindow.Contains("\"Trzymaj PPM\"", StringComparison.Ordinal)
+                && autoClickerWindow.Contains("Badge = waitingForPointer ? \"GOTOWY\" : \"ON\"", StringComparison.Ordinal),
                 "LPM and PPM expose persistent physical-button activation with independent saved modes and HUD state");
             int cursorGuardCheck = autoClickerScheduler.IndexOf("suppressClick = _shouldSuppressClick();", StringComparison.Ordinal);
             int injectedClick = autoClickerScheduler.IndexOf("NativeInput.SendMouseClick(leftButton, holdPulseMode: false)", StringComparison.Ordinal);

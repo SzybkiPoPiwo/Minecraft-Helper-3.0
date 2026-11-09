@@ -11,7 +11,7 @@
         WindowStartupLocation="CenterScreen"
         UseLayoutRounding="True"
         Background="{DynamicResource GlassBackdropBrush}"
-        Foreground="{StaticResource GlassInkBrush}"
+        Foreground="{DynamicResource GlassInkBrush}"
         FontFamily="{StaticResource GlassFont}"
         FontSize="12.5">
     <Window.Resources>
@@ -19,8 +19,8 @@
         <Style x:Key="ModuleIconTile" TargetType="Border" BasedOn="{StaticResource GlassIconTile}">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Tag.IsChecked, RelativeSource={RelativeSource Self}}" Value="False">
-                    <Setter Property="Background" Value="{StaticResource GlassNeutralSoftBrush}"/>
-                    <Setter Property="TextElement.Foreground" Value="{StaticResource GlassInk2Brush}"/>
+                    <Setter Property="Background" Value="{DynamicResource GlassNeutralSoftBrush}"/>
+                    <Setter Property="TextElement.Foreground" Value="{DynamicResource GlassInk2Brush}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
@@ -50,6 +50,96 @@
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+        <!-- Kafelek AUTO LPM / PPM: zaznaczony pokazuje swoje ustawienia w panelu poniżej. -->
+        <Style x:Key="ClickerTile" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="ClickerPanel"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd" CornerRadius="18" Padding="13" BorderThickness="2"
+                                Background="{DynamicResource GlassSurfaceBrush}"
+                                BorderBrush="{DynamicResource GlassStrokeBrush}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassRingBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassRingBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassRaisedBrush}"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource GlassAccentSolidBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Zapisz i kosz przy polu bindu: po najechaniu albo po rozpoczęciu wyboru klawisza (Tag = open). -->
+        <Style x:Key="BindActionsReveal" TargetType="StackPanel">
+            <Setter Property="Orientation" Value="Horizontal"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <Trigger Property="Tag" Value="open">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- W ciasnym wierszu przyciski wysuwają się na lewo od pola, bez przesuwania reszty wiersza. -->
+        <Style x:Key="BindActionsOverlay" TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Width" Value="102"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="-106,0,0,0"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Background" Value="{DynamicResource GlassPopupBrush}"/>
+            <Setter Property="Effect" Value="{DynamicResource GlassSoftShadow}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <Trigger Property="Tag" Value="open">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- Klikalny tekst wiersza, bez wyglądu przycisku. -->
+        <Style x:Key="RowTextButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="{DynamicResource GlassInkBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="2">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GlassNeutralSoftBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -71,11 +161,12 @@
             </Border>
             <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
                 <TextBlock Text="Auto Clicker" Style="{StaticResource GlassTitle}"/>
-                <TextBlock Name="TxtAppVersion" Text="Minecraft Helper" FontSize="11" Foreground="{StaticResource GlassInk2Brush}"/>
+                <TextBlock Name="TxtAppVersion" Text="Minecraft Helper" FontSize="11" Foreground="{DynamicResource GlassInk2Brush}"/>
             </StackPanel>
+            <Button Grid.Column="1" Content="Samouczek" Style="{StaticResource GlassChipButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Click="BtnTabTutorial_Click" ToolTip="Samouczek tej zakładki w trybie ćwiczeń — pokaże po kolei jej sekcje." AutomationProperties.Name="Samouczek tej zakładki"/>
             <Button Grid.Column="2" Style="{StaticResource GlassChipButton}" Click="BtnWindowChip_Click" ToolTip="Wybór okna Minecrafta">
                 <StackPanel Orientation="Horizontal">
-                    <Ellipse Name="FocusDot" Width="7" Height="7" Fill="{StaticResource GlassBadBrush}" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                    <Ellipse Name="FocusDot" Width="7" Height="7" Fill="{DynamicResource GlassBadBrush}" Margin="0,0,7,0" VerticalAlignment="Center"/>
                     <TextBlock Name="TxtFocus" Text="Minecraft: brak" VerticalAlignment="Center"/>
                 </StackPanel>
             </Button>
@@ -86,55 +177,68 @@
             <TabItem Header="Clicker">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="12,12,12,2">
-                        <Border Style="{StaticResource GlassCard}">
-                            <StackPanel>
+                        <!-- Dwa kafelki: kafelek wybiera, które ustawienia pokazuje panel poniżej -->
+                        <Grid Name="GridClickerTiles" Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <RadioButton Name="RbAutoLeftTile" Style="{StaticResource ClickerTile}" AutomationProperties.Name="Pokaż ustawienia AUTO LPM" Checked="ClickerTile_Checked">
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Style="{StaticResource ModuleIconTile}" Tag="{Binding ElementName=ChkAutoLeftEnabled}">
-                                        <Viewbox Width="18" Height="18"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M12,3 A6,6 0 0 1 18,9 V15 A6,6 0 0 1 6,15 V9 A6,6 0 0 1 12,3 Z M12,3 V11 H6 V9 A6,6 0 0 1 12,3 Z"/></Grid></Viewbox>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="AUTO LPM" Style="{StaticResource GlassH2}" VerticalAlignment="Center"/>
+                                    <CheckBox Name="ChkAutoLeftEnabled" HorizontalAlignment="Right" ToolTip="Włącz AUTO LPM" AutomationProperties.Name="Włącz AUTO LPM" Checked="ChkAutoLeftEnabled_Changed" Unchecked="ChkAutoLeftEnabled_Changed"/>
+                                    <Border Name="PillAutoLeftState" Grid.Row="1" Style="{StaticResource GlassPill}" HorizontalAlignment="Left" Margin="0,7,0,0">
+                                        <TextBlock Name="TxtAutoLeftState" Text="OFF" FontWeight="Bold" VerticalAlignment="Center"/>
                                     </Border>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="AUTO LPM" Style="{StaticResource GlassH2}"/>
-                                            <Border Name="PillAutoLeftState" Style="{StaticResource GlassPill}" Margin="7,0,0,0">
-                                                <TextBlock Name="TxtAutoLeftState" Text="OFF" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <Button Content="?" Style="{StaticResource InfoButtonStyle}">
-                                                <Button.ToolTip>
-                                                    <ToolTip Style="{StaticResource InfoToolTipStyle}"
-                                                             Content="AUTO LPM automatycznie klika lewym przyciskiem myszy w ustawionym zakresie CPS.&#10;&#10;PRZEŁĄCZANIE BINDEM: jedno naciśnięcie włącza, następne wyłącza.&#10;TRZYMANIE BINDU: klika wyłącznie podczas fizycznego trzymania przypisanego klawisza.&#10;BIND + FIZYCZNY LPM: bind i LPM trzeba nacisnąć razem; puszczenie LPM wyłącza clicker.&#10;AKTYWACJA BINDEM + TRZYMANIE LPM: bind przełącza gotowość, a każde późniejsze trzymanie LPM uruchamia ustawione CPS. Puszczenie LPM zatrzymuje kliknięcia, ale tryb pozostaje gotowy aż do ponownego naciśnięcia binda.&#10;&#10;CPS „od–do” ustawia losowany zakres; wpisanie tej samej wartości daje stały CPS. Tryb DAB dodatkowo przytrzymuje klawisz O wyłącznie podczas faktycznego klikania AUTO LPM. Moduł działa tylko w zapisanym, aktywnym oknie Minecrafta."/>
-                                                </Button.ToolTip>
-                                            </Button>
-                                        </StackPanel>
-                                        <TextBlock Name="TxtAutoLeftSummary" Text="Wyłączony" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,1,0,0"/>
-                                    </StackPanel>
-                                    <CheckBox Name="ChkAutoLeftEnabled" Grid.Column="2" ToolTip="Włącz AUTO LPM" AutomationProperties.Name="Włącz AUTO LPM" Checked="ChkAutoLeftEnabled_Changed" Unchecked="ChkAutoLeftEnabled_Changed"/>
+                                    <TextBlock Name="TxtAutoLeftSummary" Grid.Row="2" Text="Wyłączony" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,8,0,0"/>
                                 </Grid>
-                                <StackPanel Name="PanelAutoLeftContent" Margin="0,14,0,0">
+                            </RadioButton>
+                            <RadioButton Name="RbAutoRightTile" Grid.Column="2" Style="{StaticResource ClickerTile}" AutomationProperties.Name="Pokaż ustawienia AUTO PPM" Checked="ClickerTile_Checked">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                                    <TextBlock Text="AUTO PPM" Style="{StaticResource GlassH2}" VerticalAlignment="Center"/>
+                                    <CheckBox Name="ChkAutoRightEnabled" HorizontalAlignment="Right" ToolTip="Włącz AUTO PPM" AutomationProperties.Name="Włącz AUTO PPM" Checked="ChkAutoRightEnabled_Changed" Unchecked="ChkAutoRightEnabled_Changed"/>
+                                    <Border Name="PillAutoRightState" Grid.Row="1" Style="{StaticResource GlassPill}" HorizontalAlignment="Left" Margin="0,7,0,0">
+                                        <TextBlock Name="TxtAutoRightState" Text="OFF" FontWeight="Bold" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Name="TxtAutoRightSummary" Grid.Row="2" Text="Wyłączony" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,8,0,0"/>
+                                </Grid>
+                            </RadioButton>
+                        </Grid>
+
+                        <Border Style="{StaticResource GlassCard}">
+                            <Grid Name="GridClickerPanelHost">
+                                <TextBlock Name="TxtClickerPanelOff" Visibility="Collapsed" Style="{StaticResource GlassSub}" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Margin="0,24"/>
+
+                                <StackPanel Name="PanelAutoLeftContent" Visibility="Collapsed">
                                     <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="168"/>
                                             <ColumnDefinition Width="12"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="Bind" Style="{StaticResource GlassLabel}"/>
-                                            <Border Style="{StaticResource GlassBindField}">
+                                            <Border Style="{StaticResource GlassBindField}" HorizontalAlignment="Stretch">
                                                 <DockPanel>
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoLeft">
-                                                        <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                                    </Button>
-                                                    <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoLeft"/>
-                                                    <TextBox Name="TxtAutoLeftKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoLeft" Style="{StaticResource GlassKeyCap}"/>
+                                                    <StackPanel DockPanel.Dock="Right" Style="{StaticResource BindActionsReveal}">
+                                                        <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoLeft"/>
+                                                        <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoLeft">
+                                                            <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                        </Button>
+                                                    </StackPanel>
+                                                    <TextBox Name="TxtAutoLeftKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoLeft" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Tryb" Style="{StaticResource GlassLabel}"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Tryb" Style="{StaticResource GlassLabel}"/>
+                                                <Button Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
+                                                    <Button.ToolTip>
+                                                        <ToolTip Style="{StaticResource InfoToolTipStyle}"
+                                                                 Content="AUTO LPM automatycznie klika lewym przyciskiem myszy w ustawionym zakresie CPS.&#10;&#10;PRZEŁĄCZANIE BINDEM: jedno naciśnięcie włącza, następne wyłącza.&#10;TRZYMANIE BINDU: klika wyłącznie podczas fizycznego trzymania przypisanego klawisza.&#10;BIND + FIZYCZNY LPM: bind i LPM trzeba nacisnąć razem; puszczenie LPM wyłącza clicker.&#10;AKTYWACJA BINDEM + TRZYMANIE LPM: bind przełącza gotowość, a każde późniejsze trzymanie LPM uruchamia ustawione CPS. Puszczenie LPM zatrzymuje kliknięcia, ale tryb pozostaje gotowy aż do ponownego naciśnięcia binda.&#10;&#10;CPS „od–do” ustawia losowany zakres; wpisanie tej samej wartości daje stały CPS. Tryb DAB dodatkowo przytrzymuje klawisz O wyłącznie podczas faktycznego klikania AUTO LPM. Moduł działa tylko w zapisanym, aktywnym oknie Minecrafta."/>
+                                                    </Button.ToolTip>
+                                                </Button>
+                                            </StackPanel>
                                             <ComboBox Name="CbAutoLeftMode" SelectionChanged="RuntimeSetting_Changed"
                                                       ToolTip="Przełączanie: bind włącza/wyłącza ciągłe klikanie. Trzymanie: działa podczas trzymania bindu. Kombinacja: bind i LPM uruchamiają jedną sesję do puszczenia LPM. Aktywacja + LPM: bind uzbraja tryb, a fizyczny LPM uruchamia i zatrzymuje kliknięcia bez rozbrajania.">
                                                 <ComboBoxItem Content="Przełączanie bindem" Tag="Toggle"/>
@@ -157,135 +261,127 @@
                                         </Border>
                                         <TextBlock Name="TxtAutoLeftDoubleClickFlow" Text="Twój LPM → 50 ms → drugi LPM, trzymany razem z Twoim." Style="{StaticResource GlassSub}" Margin="2,6,0,0"/>
                                     </StackPanel>
-                                    <Grid Name="PanelAutoLeftCps" Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="16"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="CPS od" Style="{StaticResource GlassLabel}"/>
-                                            <TextBox Name="TxtAutoLeftMinCps" Text="10" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="do" Style="{StaticResource GlassLabel}"/>
-                                            <TextBox Name="TxtAutoLeftMaxCps" Text="12" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="4" VerticalAlignment="Bottom" Margin="0,0,0,0">
-                                            <local:GlassRangeSlider x:Name="SliderAutoLeftCps" Minimum="1" Maximum="20" AutomationProperties.Name="Zakres CPS LPM" RangeChanged="SliderAutoLeftCps_RangeChanged"/>
-                                            <Grid Margin="9,2,9,0" TextElement.FontSize="10" TextElement.FontWeight="SemiBold" TextElement.Foreground="{StaticResource GlassInk2Brush}">
-                                                <TextBlock Text="1" HorizontalAlignment="Left"/>
-                                                <TextBlock Name="TxtAutoLeftScaleMid" Text="10" HorizontalAlignment="Center"/>
-                                                <TextBlock Name="TxtAutoLeftScaleMax" Text="20" HorizontalAlignment="Right"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Grid>
-                                    <CheckBox Name="ChkAutoLeftDabMode" Checked="RuntimeCheck_Changed" Unchecked="RuntimeCheck_Changed">
-                                        <StackPanel>
-                                            <TextBlock Text="Tryb DAB" Style="{StaticResource GlassOptionTitle}"/>
-                                            <TextBlock Text="Podczas klikania AUTO LPM trzyma klawisz O." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
-                                        </StackPanel>
-                                    </CheckBox>
-                                    <Border Style="{StaticResource GlassInset}" Margin="0,12,0,0" Padding="12,10">
-                                        <StackPanel>
-                                            <CheckBox Name="ChkAutoLeftJitter" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed">
-                                                <StackPanel>
-                                                    <TextBlock Text="Jitter" Style="{StaticResource GlassOptionTitle}"/>
-                                                    <TextBlock Text="Po kliknięciu lekko porusza celownikiem." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
-                                                </StackPanel>
-                                            </CheckBox>
-                                            <StackPanel Name="PanelAutoLeftJitter" Margin="0,10,0,0">
-                                                <Border Style="{StaticResource GlassInset}" Padding="12,8">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
-                                                        <TextBlock Text="Szansa" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
-                                                        <Slider Name="SliderAutoLeftJitterChance" Grid.Column="1" Minimum="0" Maximum="100" Value="35" SmallChange="5" LargeChange="25" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Szansa" ValueChanged="PvpExtrasSlider_ValueChanged"/>
-                                                        <TextBlock Name="TxtAutoLeftJitterChance" Grid.Column="2" Text="35 %" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                                    </Grid>
-                                                </Border>
-                                                <Border Style="{StaticResource GlassInset}" Padding="12,8" Margin="0,6,0,0">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
-                                                        <TextBlock Text="Rozrzut" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
-                                                        <Slider Name="SliderAutoLeftJitterDispersion" Grid.Column="1" Minimum="1" Maximum="10" Value="2" SmallChange="1" LargeChange="5" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Rozrzut" ValueChanged="PvpExtrasSlider_ValueChanged"/>
-                                                        <TextBlock Name="TxtAutoLeftJitterDispersion" Grid.Column="2" Text="2 px" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                                                    </Grid>
-                                                </Border>
-                                            </StackPanel>
-                                            <Border Name="DividerAfterJitter" Style="{StaticResource GlassDivider}" Margin="0,10"/>
-                                            <CheckBox Name="ChkAutoLeftSneakPause" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed">
-                                                <StackPanel>
-                                                    <TextBlock Text="Pauza przy kucaniu" Style="{StaticResource GlassOptionTitle}"/>
-                                                    <TextBlock Text="Gdy trzymasz klawisz skradania, AUTO LPM nie klika." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
-                                                </StackPanel>
-                                            </CheckBox>
-                                            <Grid Name="PanelAutoLeftSneak" Margin="0,10,0,0">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                                <TextBlock Text="Klawisz skradania" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
-                                                <Border Grid.Column="1" Style="{StaticResource GlassBindField}">
-                                                    <DockPanel>
-                                                        <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="SneakKey"/>
-                                                        <TextBox Name="TxtAutoLeftSneakKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="SneakKey" Style="{StaticResource GlassKeyCap}"/>
-                                                    </DockPanel>
-                                                </Border>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Border>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource GlassCard}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Style="{StaticResource ModuleIconTile}" Tag="{Binding ElementName=ChkAutoRightEnabled}">
-                                        <Viewbox Width="18" Height="18"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M12,3 A6,6 0 0 1 18,9 V15 A6,6 0 0 1 6,15 V9 A6,6 0 0 1 12,3 Z M12,3 V11 H18 V9 A6,6 0 0 0 12,3 Z"/></Grid></Viewbox>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="AUTO PPM" Style="{StaticResource GlassH2}"/>
-                                            <Border Name="PillAutoRightState" Style="{StaticResource GlassPill}" Margin="7,0,0,0">
-                                                <TextBlock Name="TxtAutoRightState" Text="OFF" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <Button Content="?" Style="{StaticResource InfoButtonStyle}">
-                                                <Button.ToolTip>
-                                                    <ToolTip Style="{StaticResource InfoToolTipStyle}"
-                                                             Content="AUTO PPM automatycznie klika prawym przyciskiem myszy w ustawionym zakresie CPS.&#10;&#10;PRZEŁĄCZANIE BINDEM: jedno naciśnięcie włącza, następne wyłącza.&#10;TRZYMANIE BINDU: działa tylko podczas trzymania osobnego binda.&#10;BIND + FIZYCZNY PPM: bind i PPM trzeba nacisnąć razem; puszczenie PPM wyłącza clicker.&#10;AKTYWACJA BINDEM + TRZYMANIE PPM: osobny bind przełącza gotowość, a każde późniejsze trzymanie PPM uruchamia ustawione CPS do blokowania/używania przedmiotu. Puszczenie PPM zatrzymuje kliknięcia bez rozbrajania trybu.&#10;&#10;Wspólny bind jest możliwy, gdy LPM ma tryb Trzymanie lub Kombinacja, a PPM tryb Kombinacja. Nowy tryb aktywacji fizycznym przyciskiem wymaga osobnego binda dla LPM i PPM. CPS „od–do” oznacza losowany zakres; równe wartości dają stały CPS."/>
-                                                </Button.ToolTip>
+                                    <StackPanel Name="PanelAutoLeftCps" Margin="0,0,0,10">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource RowTextButton}" Tag="Left" Click="BtnCpsValue_Click" ToolTip="Kliknij, aby wpisać wartości" AutomationProperties.Name="Wpisz zakres CPS AUTO LPM">
+                                                <TextBlock Name="TxtAutoLeftCpsValue" Text="10–12 CPS" FontFamily="{StaticResource GlassMonoFont}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource GlassAccentInkBrush}"/>
                                             </Button>
-                                        </StackPanel>
-                                        <TextBlock Name="TxtAutoRightSummary" Text="Wyłączony" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,1,0,0"/>
+                                            <TextBlock Text="Szybkość" Style="{StaticResource GlassLabel}" VerticalAlignment="Center" Margin="0"/>
+                                        </DockPanel>
+                                        <Grid Name="PanelAutoLeftCpsBoxes" Visibility="Collapsed" Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="CPS od" Style="{StaticResource GlassLabel}"/>
+                                                <TextBox Name="TxtAutoLeftMinCps" Text="10" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="do" Style="{StaticResource GlassLabel}"/>
+                                                <TextBox Name="TxtAutoLeftMaxCps" Text="12" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <local:GlassRangeSlider x:Name="SliderAutoLeftCps" Margin="0,6,0,0" Minimum="1" Maximum="20" AutomationProperties.Name="Zakres CPS LPM" RangeChanged="SliderAutoLeftCps_RangeChanged"/>
+                                        <Grid Margin="9,2,9,0" TextElement.FontSize="10" TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource GlassInk2Brush}">
+                                            <TextBlock Text="1" HorizontalAlignment="Left"/>
+                                            <TextBlock Name="TxtAutoLeftScaleMid" Text="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Name="TxtAutoLeftScaleMax" Text="20" HorizontalAlignment="Right"/>
+                                        </Grid>
                                     </StackPanel>
-                                    <CheckBox Name="ChkAutoRightEnabled" Grid.Column="2" ToolTip="Włącz AUTO PPM" AutomationProperties.Name="Włącz AUTO PPM" Checked="ChkAutoRightEnabled_Changed" Unchecked="ChkAutoRightEnabled_Changed"/>
-                                </Grid>
-                                <StackPanel Name="PanelAutoRightContent" Margin="0,14,0,0">
+
+                                    <Border Style="{StaticResource GlassDivider}" Margin="0,0,0,2"/>
+                                    <Button Name="BtnAutoLeftMore" Style="{StaticResource RowTextButton}" HorizontalContentAlignment="Stretch" MinHeight="40" Click="BtnAutoLeftMore_Click" AutomationProperties.Name="Więcej opcji AUTO LPM">
+                                        <DockPanel>
+                                            <TextBlock Name="TxtAutoLeftMoreArrow" DockPanel.Dock="Right" Text="▸" Foreground="{DynamicResource GlassInk2Brush}" VerticalAlignment="Center" Margin="8,0,2,0"/>
+                                            <Border DockPanel.Dock="Right" Style="{StaticResource GlassPill}" Background="{DynamicResource GlassAccentSoftBrush}" Margin="6,0,0,0" Visibility="{Binding IsChecked, ElementName=ChkAutoLeftSneakPause, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="Pauza przy kucaniu" Foreground="{DynamicResource GlassAccentInkBrush}" VerticalAlignment="Center"/></Border>
+                                            <Border DockPanel.Dock="Right" Style="{StaticResource GlassPill}" Background="{DynamicResource GlassAccentSoftBrush}" Margin="6,0,0,0" Visibility="{Binding IsChecked, ElementName=ChkAutoLeftDabMode, Converter={StaticResource BoolToVisibility}}"><TextBlock Text="DAB" Foreground="{DynamicResource GlassAccentInkBrush}" VerticalAlignment="Center"/></Border>
+                                            <TextBlock Text="Więcej opcji" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </Button>
+                                    <StackPanel Name="PanelAutoLeftMore" Visibility="Collapsed" Margin="0,6,0,0">
+                                        <CheckBox Name="ChkAutoLeftDabMode" Checked="RuntimeCheck_Changed" Unchecked="RuntimeCheck_Changed">
+                                            <StackPanel>
+                                                <TextBlock Text="Tryb DAB" Style="{StaticResource GlassOptionTitle}"/>
+                                                <TextBlock Text="Podczas klikania AUTO LPM trzyma klawisz O." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <Border Style="{StaticResource GlassInset}" Margin="0,12,0,0" Padding="12,10">
+                                            <StackPanel>
+                                                <CheckBox Name="ChkAutoLeftJitter" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Jitter" Style="{StaticResource GlassOptionTitle}"/>
+                                                        <TextBlock Text="Po kliknięciu lekko porusza celownikiem." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
+                                                    </StackPanel>
+                                                </CheckBox>
+                                                <StackPanel Name="PanelAutoLeftJitter" Margin="0,10,0,0">
+                                                    <Border Style="{StaticResource GlassInset}" Padding="12,8">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="Szansa" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
+                                                            <Slider Name="SliderAutoLeftJitterChance" Grid.Column="1" Minimum="0" Maximum="100" Value="35" SmallChange="5" LargeChange="25" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Szansa" ValueChanged="PvpExtrasSlider_ValueChanged"/>
+                                                            <TextBlock Name="TxtAutoLeftJitterChance" Grid.Column="2" Text="35 %" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border Style="{StaticResource GlassInset}" Padding="12,8" Margin="0,6,0,0">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
+                                                            <TextBlock Text="Rozrzut" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
+                                                            <Slider Name="SliderAutoLeftJitterDispersion" Grid.Column="1" Minimum="1" Maximum="10" Value="2" SmallChange="1" LargeChange="5" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Rozrzut" ValueChanged="PvpExtrasSlider_ValueChanged"/>
+                                                            <TextBlock Name="TxtAutoLeftJitterDispersion" Grid.Column="2" Text="2 px" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </StackPanel>
+                                                <Border Name="DividerAfterJitter" Style="{StaticResource GlassDivider}" Margin="0,10"/>
+                                                <CheckBox Name="ChkAutoLeftSneakPause" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed">
+                                                    <StackPanel>
+                                                        <TextBlock Text="Pauza przy kucaniu" Style="{StaticResource GlassOptionTitle}"/>
+                                                        <TextBlock Text="Gdy trzymasz klawisz skradania, AUTO LPM nie klika." Style="{StaticResource GlassSub}" FontWeight="Normal"/>
+                                                    </StackPanel>
+                                                </CheckBox>
+                                                <Grid Name="PanelAutoLeftSneak" Margin="0,10,0,0">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="Klawisz skradania" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
+                                                    <Border Grid.Column="1" Style="{StaticResource GlassBindField}">
+                                                        <DockPanel>
+                                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="SneakKey"/>
+                                                            <TextBox Name="TxtAutoLeftSneakKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="SneakKey" Style="{StaticResource GlassKeyCap}"/>
+                                                        </DockPanel>
+                                                    </Border>
+                                                </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel Name="PanelAutoRightContent" Visibility="Collapsed">
                                     <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="168"/>
                                             <ColumnDefinition Width="12"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         <StackPanel>
                                             <TextBlock Text="Bind" Style="{StaticResource GlassLabel}"/>
-                                            <Border Style="{StaticResource GlassBindField}">
+                                            <Border Style="{StaticResource GlassBindField}" HorizontalAlignment="Stretch">
                                                 <DockPanel>
-                                                    <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoRight">
-                                                        <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                                    </Button>
-                                                    <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoRight"/>
-                                                    <TextBox Name="TxtAutoRightKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoRight" Style="{StaticResource GlassKeyCap}"/>
+                                                    <StackPanel DockPanel.Dock="Right" Style="{StaticResource BindActionsReveal}">
+                                                        <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoRight"/>
+                                                        <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoRight">
+                                                            <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                        </Button>
+                                                    </StackPanel>
+                                                    <TextBox Name="TxtAutoRightKey" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoRight" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
                                                 </DockPanel>
                                             </Border>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Tryb" Style="{StaticResource GlassLabel}"/>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Tryb" Style="{StaticResource GlassLabel}"/>
+                                                <Button Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
+                                                    <Button.ToolTip>
+                                                        <ToolTip Style="{StaticResource InfoToolTipStyle}"
+                                                                 Content="AUTO PPM automatycznie klika prawym przyciskiem myszy w ustawionym zakresie CPS.&#10;&#10;PRZEŁĄCZANIE BINDEM: jedno naciśnięcie włącza, następne wyłącza.&#10;TRZYMANIE BINDU: działa tylko podczas trzymania osobnego binda.&#10;BIND + FIZYCZNY PPM: bind i PPM trzeba nacisnąć razem; puszczenie PPM wyłącza clicker.&#10;AKTYWACJA BINDEM + TRZYMANIE PPM: osobny bind przełącza gotowość, a każde późniejsze trzymanie PPM uruchamia ustawione CPS do blokowania/używania przedmiotu. Puszczenie PPM zatrzymuje kliknięcia bez rozbrajania trybu.&#10;&#10;Wspólny bind jest możliwy, gdy LPM ma tryb Trzymanie lub Kombinacja, a PPM tryb Kombinacja. Nowy tryb aktywacji fizycznym przyciskiem wymaga osobnego binda dla LPM i PPM. CPS „od–do” oznacza losowany zakres; równe wartości dają stały CPS."/>
+                                                    </Button.ToolTip>
+                                                </Button>
+                                            </StackPanel>
                                             <ComboBox Name="CbAutoRightMode" SelectionChanged="RuntimeSetting_Changed"
                                                       ToolTip="Przełączanie: bind włącza/wyłącza ciągłe klikanie. Trzymanie: działa podczas trzymania osobnego bindu. Kombinacja: bind i PPM uruchamiają jedną sesję do puszczenia PPM. Aktywacja + PPM: osobny bind uzbraja tryb, a fizyczny PPM uruchamia i zatrzymuje kliknięcia bez rozbrajania.">
                                                 <ComboBoxItem Content="Przełączanie bindem" Tag="Toggle"/>
@@ -308,38 +404,41 @@
                                         </Border>
                                         <TextBlock Name="TxtAutoRightDoubleClickFlow" Text="Twój PPM → 50 ms → drugi PPM, trzymany razem z Twoim." Style="{StaticResource GlassSub}" Margin="2,6,0,0"/>
                                     </StackPanel>
-                                    <Grid Name="PanelAutoRightCps">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="72"/>
-                                            <ColumnDefinition Width="16"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel>
-                                            <TextBlock Text="CPS od" Style="{StaticResource GlassLabel}"/>
-                                            <TextBox Name="TxtAutoRightMinCps" Text="10" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="do" Style="{StaticResource GlassLabel}"/>
-                                            <TextBox Name="TxtAutoRightMaxCps" Text="12" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="4" VerticalAlignment="Bottom" Margin="0,0,0,0">
-                                            <local:GlassRangeSlider x:Name="SliderAutoRightCps" Minimum="1" Maximum="20" AutomationProperties.Name="Zakres CPS PPM" RangeChanged="SliderAutoRightCps_RangeChanged"/>
-                                            <Grid Margin="9,2,9,0" TextElement.FontSize="10" TextElement.FontWeight="SemiBold" TextElement.Foreground="{StaticResource GlassInk2Brush}">
-                                                <TextBlock Text="1" HorizontalAlignment="Left"/>
-                                                <TextBlock Name="TxtAutoRightScaleMid" Text="10" HorizontalAlignment="Center"/>
-                                                <TextBlock Name="TxtAutoRightScaleMax" Text="20" HorizontalAlignment="Right"/>
-                                            </Grid>
-                                        </StackPanel>
-                                    </Grid>
+                                    <StackPanel Name="PanelAutoRightCps" Margin="0,0,0,12">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource RowTextButton}" Tag="Right" Click="BtnCpsValue_Click" ToolTip="Kliknij, aby wpisać wartości" AutomationProperties.Name="Wpisz zakres CPS AUTO PPM">
+                                                <TextBlock Name="TxtAutoRightCpsValue" Text="10–12 CPS" FontFamily="{StaticResource GlassMonoFont}" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource GlassAccentInkBrush}"/>
+                                            </Button>
+                                            <TextBlock Text="Szybkość" Style="{StaticResource GlassLabel}" VerticalAlignment="Center" Margin="0"/>
+                                        </DockPanel>
+                                        <Grid Name="PanelAutoRightCpsBoxes" Visibility="Collapsed" Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <StackPanel>
+                                                <TextBlock Text="CPS od" Style="{StaticResource GlassLabel}"/>
+                                                <TextBox Name="TxtAutoRightMinCps" Text="10" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2">
+                                                <TextBlock Text="do" Style="{StaticResource GlassLabel}"/>
+                                                <TextBox Name="TxtAutoRightMaxCps" Text="12" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <local:GlassRangeSlider x:Name="SliderAutoRightCps" Margin="0,6,0,0" Minimum="1" Maximum="20" AutomationProperties.Name="Zakres CPS PPM" RangeChanged="SliderAutoRightCps_RangeChanged"/>
+                                        <Grid Margin="9,2,9,0" TextElement.FontSize="10" TextElement.FontWeight="SemiBold" TextElement.Foreground="{DynamicResource GlassInk2Brush}">
+                                            <TextBlock Text="1" HorizontalAlignment="Left"/>
+                                            <TextBlock Name="TxtAutoRightScaleMid" Text="10" HorizontalAlignment="Center"/>
+                                            <TextBlock Name="TxtAutoRightScaleMax" Text="20" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource GlassNote}" Margin="0">
+                                        <TextBlock TextWrapping="Wrap" FontSize="11.5" Text="Trzymany PPM wstrzymuje klikanie, np. żeby zjeść. Po puszczeniu AUTO PPM wraca samo. Dotyczy trybów z osobnym bindem."/>
+                                    </Border>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
 
                         <Border Style="{StaticResource GlassWarnNote}">
-                                    <TextBlock TextWrapping="Wrap" FontSize="11.5" Text="Wspólny bind: LPM ustaw na Trzymanie lub Kombinację, a PPM na Kombinację. Tryby z aktywacją i podwójnym kliknięciem wymagają osobnych klawiszy. Blokada kursora i overlay są w Ustawieniach."/>
-                                </Border>
+                            <TextBlock TextWrapping="Wrap" FontSize="11.5" Text="Wspólny bind: LPM ustaw na Trzymanie lub Kombinację, a PPM na Kombinację. Tryby z aktywacją i podwójnym kliknięciem wymagają osobnych klawiszy. Blokada kursora i overlay są w Ustawieniach."/>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
@@ -348,27 +447,10 @@
             <TabItem Header="Akcje">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="12,12,12,2">
-                        <Border Style="{StaticResource GlassNote}">
-                            <DockPanel>
-                                <Viewbox Width="15" Height="15" VerticalAlignment="Top" Margin="0,1,8,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2.2" Data="M12,3 A9,9 0 1 1 11.99,3 Z M12,11 V16 M12,8 H12.01"/></Grid></Viewbox>
-                                <Button DockPanel.Dock="Right" Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
-                                    <Button.ToolTip>
-                                        <ToolTip Style="{StaticResource InfoToolTipStyle}"
-                                                 Content="Najpierw ustaw slot miecza oraz slot każdego używanego przedmiotu. Następnie przypisz osobny bind wybranym akcjom.&#10;&#10;AUTO BLOK, ŚNIEŻKA I PERŁA: jedno naciśnięcie binda przełącza na ustawiony slot, wykonuje pojedyncze pełne kliknięcie PPM bez przytrzymywania i wraca na slot miecza.&#10;WĘDKA: przełącza na slot wędki, przytrzymuje PPM przez ustawioną liczbę milisekund i wraca na miecz.&#10;&#10;Akcje działają tylko przy uruchomionym AUTO LPM. Harmonogram LPM zachowuje CPS i termin następnego kliknięcia podczas całej akcji; AUTO PPM jest na moment wstrzymywane, aby nie kolidować z użyciem przedmiotu. W trybie trzymania nadal musisz trzymać wymagany bind lub LPM. Otwarty chat lub GUI blokuje wykonanie akcji."/>
-                                    </Button.ToolTip>
-                                </Button>
-                                <TextBlock TextWrapping="Wrap" FontSize="11.5" FontWeight="Medium" Text="Działa przy włączonym AUTO LPM. Bind: slot → jedno PPM → powrót na miecz. AUTO PPM na chwilę pauzuje, a otwarte GUI blokuje akcję."/>
-                            </DockPanel>
-                        </Border>
-
+                        <!-- Pasek i tabela: slot i bind każdego przedmiotu w jednym wierszu -->
                         <Border Style="{StaticResource GlassCard}">
                             <StackPanel>
-                                <DockPanel Margin="0,0,0,12">
-                                    <TextBlock DockPanel.Dock="Right" Text="wybierz przedmiot, potem slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center"/>
-                                    <TextBlock Text="Sloty hotbara" Style="{StaticResource GlassH2}"/>
-                                </DockPanel>
-                                <WrapPanel Name="PanelPvpTools" Margin="0,0,0,8"/>
-                                <Border CornerRadius="14" Padding="4">
+                                <Border CornerRadius="14" Padding="4" Margin="0,0,0,6">
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                                             <GradientStop Offset="0" Color="#3B3F46"/>
@@ -377,180 +459,197 @@
                                     </Border.Background>
                                     <UniformGrid Name="PanelPvpHotbar" Rows="1" Columns="9"/>
                                 </Border>
-                                <!-- Właściwe ustawienia slotów; obsługiwane przez hotbar powyżej. -->
-                                <StackPanel Visibility="Collapsed">
-                                    <ComboBox Name="CbPvpSwordSlot" SelectionChanged="PvpQuickActionSetting_Changed"/>
-                                    <ComboBox Name="CbPvpBlockSlot" SelectionChanged="PvpQuickActionSetting_Changed"/>
-                                    <ComboBox Name="CbPvpSnowballSlot" SelectionChanged="PvpQuickActionSetting_Changed"/>
-                                    <ComboBox Name="CbPvpPearlSlot" SelectionChanged="PvpQuickActionSetting_Changed"/>
-                                    <ComboBox Name="CbPvpRodSlot" SelectionChanged="PvpQuickActionSetting_Changed"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
 
-                        <Border Style="{StaticResource GlassCard}">
-                            <StackPanel>
-                                <TextBlock Text="Bindy akcji" Style="{StaticResource GlassH2}" Margin="0,0,0,4"/>
-                                <Grid Margin="0,6">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Name="IconPvpBlock" Width="26" Height="26" CornerRadius="7" Background="{StaticResource GlassNeutralSoftBrush}" Padding="4"/>
+                                <Grid MinHeight="46">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Border Name="IconPvpSword" Width="30" Height="30" CornerRadius="9" Background="{DynamicResource GlassAccentSoftBrush}" Padding="6" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Miecz" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Na ten slot wracają akcje" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Name="CbPvpSwordSlot" Width="62" SelectionChanged="PvpSlotCombo_Changed" AutomationProperties.Name="Slot miecza"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="3" Text="wraca" Width="58" Margin="8,0,0,0" TextAlignment="Center" Style="{StaticResource GlassSub}" VerticalAlignment="Center"/>
+                                </Grid>
+                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
+
+                                <Grid MinHeight="46">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Border Name="IconPvpBlock" Width="30" Height="30" CornerRadius="9" Background="{DynamicResource GlassAccentSoftBrush}" Padding="6" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
                                         <TextBlock Text="Auto blok" FontSize="13" FontWeight="SemiBold"/>
-                                        <TextBlock Name="TxtPvpBlockFlow" Style="{StaticResource GlassSub}"/>
+                                        <TextBlock Name="TxtPvpBlockFlow" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
-                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="2" Grid.ColumnSpan="3" Margin="8,0,0,0">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpAutoBlock">
-                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                            </Button>
-                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpAutoBlock"/>
-                                            <TextBox Name="TxtPvpAutoBlockBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpAutoBlock" Style="{StaticResource GlassKeyCap}"/>
-                                        </DockPanel>
-                                    </Border>
-                                </Grid>
-                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
-                                <Grid Margin="0,6">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Name="IconPvpSnowball" Width="26" Height="26" CornerRadius="7" Background="{StaticResource GlassNeutralSoftBrush}" Padding="4"/>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Śnieżka" FontSize="13" FontWeight="SemiBold"/>
-                                        <TextBlock Name="TxtPvpSnowballFlow" Style="{StaticResource GlassSub}"/>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Name="CbPvpBlockSlot" Width="62" SelectionChanged="PvpSlotCombo_Changed" AutomationProperties.Name="Slot bloku"/>
                                     </StackPanel>
-                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="2" Grid.ColumnSpan="3" Margin="8,0,0,0">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpSnowball">
-                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                            </Button>
-                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpSnowball"/>
-                                            <TextBox Name="TxtPvpSnowballBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpSnowball" Style="{StaticResource GlassKeyCap}"/>
-                                        </DockPanel>
-                                    </Border>
-                                </Grid>
-                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
-                                <Grid Margin="0,6">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Name="IconPvpPearl" Width="26" Height="26" CornerRadius="7" Background="{StaticResource GlassNeutralSoftBrush}" Padding="4"/>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Perła" FontSize="13" FontWeight="SemiBold"/>
-                                        <TextBlock Name="TxtPvpPearlFlow" Style="{StaticResource GlassSub}"/>
-                                    </StackPanel>
-                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="2" Grid.ColumnSpan="3" Margin="8,0,0,0">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpPearl">
-                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                            </Button>
-                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpPearl"/>
-                                            <TextBox Name="TxtPvpPearlBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpPearl" Style="{StaticResource GlassKeyCap}"/>
-                                        </DockPanel>
-                                    </Border>
-                                </Grid>
-                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
-                                <Grid Margin="0,6">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Name="IconPvpRod" Width="26" Height="26" CornerRadius="7" Background="{StaticResource GlassNeutralSoftBrush}" Padding="4"/>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Wędka" FontSize="13" FontWeight="SemiBold"/>
-                                        <TextBlock Name="TxtPvpRodFlow" Style="{StaticResource GlassSub}"/>
-                                    </StackPanel>
-                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="2" Grid.ColumnSpan="3" Margin="8,0,0,0">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpRod">
-                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                            </Button>
-                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpRod"/>
-                                            <TextBox Name="TxtPvpRodBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpRod" Style="{StaticResource GlassKeyCap}"/>
-                                        </DockPanel>
-                                    </Border>
-                                </Grid>
-
-                                <Border Style="{StaticResource GlassInset}" Margin="0,8,0,10">
-                                    <DockPanel>
-                                        <TextBlock DockPanel.Dock="Right" Text="ms (20–1000)" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                        <TextBox Name="TxtPvpRodHoldMs" DockPanel.Dock="Right" Width="72" Text="80" Style="{StaticResource GlassMonoBox}" TextChanged="RuntimeText_Changed"/>
-                                        <TextBlock Text="Wędka — trzymanie PPM" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
-                                    </DockPanel>
-                                </Border>
-
-                                <Border Style="{StaticResource GlassInset}">
-                                    <TextBlock Name="TxtPvpQuickActionStatus" Text="Gotowe. Ustaw sloty i przypisz wybrane bindy." Style="{StaticResource GlassSub}" Foreground="{StaticResource GlassOkBrush}"/>
-                                </Border>
-                            </StackPanel>
-                        </Border>
-                        <Border Style="{StaticResource GlassCard}">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <Border Style="{StaticResource ModuleIconTile}" Tag="{Binding ElementName=ChkAutoGuardEnabled}">
-                                        <Viewbox Width="18" Height="18"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M12,3 L19,6 V11 C19,15.5 16,19 12,21 C8,19 5,15.5 5,11 V6 Z M9,12 L11,14 L15,10"/></Grid></Viewbox>
-                                    </Border>
-                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Auto Guard" Style="{StaticResource GlassH2}"/>
-                                            <Border Name="PillAutoGuardState" Style="{StaticResource GlassPill}" Margin="7,0,0,0">
-                                                <TextBlock Name="TxtAutoGuardState" Text="OFF" VerticalAlignment="Center"/>
-                                            </Border>
-                                            <Button Content="?" Style="{StaticResource InfoButtonStyle}">
-                                                <Button.ToolTip>
-                                                    <ToolTip Style="{StaticResource InfoToolTipStyle}"
-                                                             Content="AUTO GUARD (blockhit): bind włącza i wyłącza tapowanie PPM. Tap to krótkie kliknięcie PPM co ustawiony odstęp, wykonywane równolegle z AUTO LPM.&#10;&#10;Działa tylko wtedy, gdy AUTO LPM faktycznie klika (nie w trybie podwójnego kliknięcia i nie przy włączonym AUTO PPM). Nie przeszkadza, gdy sam trzymasz PPM. Po rzucie perłą lub śnieżką szybką akcją czeka 2 s, żeby blok nie anulował rzutu."/>
-                                                </Button.ToolTip>
-                                            </Button>
-                                        </StackPanel>
-                                        <TextBlock Text="Blockhit: tapuje PPM, gdy AUTO LPM klika." Style="{StaticResource GlassSub}" Margin="0,1,0,0"/>
-                                    </StackPanel>
-                                    <CheckBox Name="ChkAutoGuardEnabled" Grid.Column="2" ToolTip="Włącz Auto Guard" AutomationProperties.Name="Włącz Auto Guard" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed"/>
-                                </Grid>
-                                <StackPanel Name="PanelAutoGuardContent" Margin="0,14,0,0">
-                                    <Grid Margin="0,0,0,10">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                        <TextBlock Text="Bind on / off" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
-                                        <Border Style="{StaticResource GlassBindField}" Grid.Column="1">
-                                            <DockPanel>
-                                                <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoGuard">
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="3" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtPvpAutoBlockBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpAutoBlock" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpAutoBlock"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpAutoBlock">
                                                     <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
                                                 </Button>
-                                                <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoGuard"/>
-                                                <TextBox Name="TxtAutoGuardBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoGuard" Style="{StaticResource GlassKeyCap}"/>
-                                            </DockPanel>
-                                        </Border>
-                                    </Grid>
+                                            </StackPanel></Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
+
+                                <Grid MinHeight="46">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Border Name="IconPvpSnowball" Width="30" Height="30" CornerRadius="9" Background="{DynamicResource GlassAccentSoftBrush}" Padding="6" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Śnieżka" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock Name="TxtPvpSnowballFlow" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Name="CbPvpSnowballSlot" Width="62" SelectionChanged="PvpSlotCombo_Changed" AutomationProperties.Name="Slot śnieżki"/>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="3" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtPvpSnowballBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpSnowball" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpSnowball"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpSnowball">
+                                                    <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                </Button>
+                                            </StackPanel></Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
+
+                                <Grid MinHeight="46">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Border Name="IconPvpPearl" Width="30" Height="30" CornerRadius="9" Background="{DynamicResource GlassAccentSoftBrush}" Padding="6" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Perła" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock Name="TxtPvpPearlFlow" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Name="CbPvpPearlSlot" Width="62" SelectionChanged="PvpSlotCombo_Changed" AutomationProperties.Name="Slot perły"/>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="3" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtPvpPearlBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpPearl" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpPearl"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpPearl">
+                                                    <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                </Button>
+                                            </StackPanel></Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Border Style="{StaticResource GlassDivider}" Margin="0"/>
+
+                                <Grid MinHeight="46">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Border Name="IconPvpRod" Width="30" Height="30" CornerRadius="9" Background="{DynamicResource GlassAccentSoftBrush}" Padding="6" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Margin="10,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Wędka" FontSize="13" FontWeight="SemiBold"/>
+                                        <TextBlock Name="TxtPvpRodFlow" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Slot" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                        <ComboBox Name="CbPvpRodSlot" Width="62" SelectionChanged="PvpSlotCombo_Changed" AutomationProperties.Name="Slot wędki"/>
+                                    </StackPanel>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="3" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtPvpRodBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="PvpRod" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="PvpRod"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="PvpRod">
+                                                    <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                </Button>
+                                            </StackPanel></Border>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                                <Border Style="{StaticResource GlassDivider}" Margin="0,0,0,8"/>
+
+                                <DockPanel Margin="0,0,0,6">
+                                    <TextBlock DockPanel.Dock="Right" Text="ms" Style="{StaticResource GlassSub}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                    <TextBox Name="TxtPvpRodHoldMs" DockPanel.Dock="Right" Width="70" Text="80" Style="{StaticResource GlassMonoBox}" ToolTip="Od 20 do 1000 ms" TextChanged="RuntimeText_Changed"/>
+                                    <TextBlock Text="Wędka — trzymanie PPM" Style="{StaticResource GlassSub}" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
+                                        <Button.ToolTip>
+                                            <ToolTip Style="{StaticResource InfoToolTipStyle}"
+                                                     Content="Najpierw ustaw slot miecza oraz slot każdego używanego przedmiotu. Następnie przypisz osobny bind wybranym akcjom. Gdy wybierzesz slot zajęty przez inny przedmiot, oba zamienią się miejscami.&#10;&#10;AUTO BLOK, ŚNIEŻKA I PERŁA: jedno naciśnięcie binda przełącza na ustawiony slot, wykonuje pojedyncze pełne kliknięcie PPM bez przytrzymywania i wraca na slot miecza.&#10;WĘDKA: przełącza na slot wędki, przytrzymuje PPM przez ustawioną liczbę milisekund i wraca na miecz.&#10;&#10;Akcje działają tylko przy uruchomionym AUTO LPM. Harmonogram LPM zachowuje CPS i termin następnego kliknięcia podczas całej akcji; AUTO PPM jest na moment wstrzymywane, aby nie kolidować z użyciem przedmiotu. W trybie trzymania nadal musisz trzymać wymagany bind lub LPM. Otwarty chat lub GUI blokuje wykonanie akcji."/>
+                                        </Button.ToolTip>
+                                    </Button>
+                                    <TextBlock Name="TxtPvpQuickActionStatus" Text="Gotowe. Ustaw sloty i przypisz wybrane bindy." Style="{StaticResource GlassSub}" Foreground="{DynamicResource GlassOkBrush}" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Auto Guard: wiersz; kliknięcie opisu rozwija szczegóły -->
+                        <Border Style="{StaticResource GlassCard}" Padding="14,10">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Button Style="{StaticResource RowTextButton}" HorizontalContentAlignment="Stretch" Click="BtnAutoGuardDetails_Click" AutomationProperties.Name="Szczegóły Auto Guard">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Auto Guard" FontSize="13" FontWeight="Bold"/>
+                                                <Border Name="PillAutoGuardState" Style="{StaticResource GlassPill}" Margin="7,0,0,0" Visibility="Collapsed">
+                                                    <TextBlock Name="TxtAutoGuardState" Text="OFF" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <TextBlock Name="TxtAutoGuardArrow" Text="▸" Foreground="{DynamicResource GlassInk2Brush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Name="TxtAutoGuardSub" Text="Tapuje PPM co 160 ms, gdy AUTO LPM klika" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="1" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtAutoGuardBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="AutoGuard" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="AutoGuard"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="AutoGuard">
+                                                    <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                </Button>
+                                            </StackPanel></Border>
+                                        </Grid>
+                                    </Border>
+                                    <CheckBox Name="ChkAutoGuardEnabled" Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" ToolTip="Włącz Auto Guard" AutomationProperties.Name="Włącz Auto Guard" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed"/>
+                                </Grid>
+                                <StackPanel Name="PanelAutoGuardContent" Margin="0,10,0,0">
                                     <Border Style="{StaticResource GlassInset}" Padding="12,8">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
                                             <TextBlock Text="Odstęp PPM" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
                                             <Slider Name="SliderAutoGuardMs" Grid.Column="1" Minimum="50" Maximum="500" Value="160" SmallChange="10" LargeChange="50" TickFrequency="10" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Odstęp PPM" ValueChanged="PvpExtrasSlider_ValueChanged"/>
                                             <TextBlock Name="TxtAutoGuardMs" Grid.Column="2" Text="160 ms" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
-                                    <Border Style="{StaticResource GlassInset}" Margin="0,10,0,0" Padding="12,8">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2"><Viewbox Width="13" Height="13" Margin="0,0,8,0"><Grid Width="24" Height="24"><Path Data="M5,12 L10,17 L20,7" Stroke="{StaticResource GlassOkBrush}" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Grid></Viewbox><TextBlock Text="tylko gdy AUTO LPM faktycznie klika (bez podwójnego kliknięcia)" Style="{StaticResource GlassSub}"/></StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2"><Viewbox Width="13" Height="13" Margin="0,0,8,0"><Grid Width="24" Height="24"><Path Data="M5,12 L10,17 L20,7" Stroke="{StaticResource GlassOkBrush}" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Grid></Viewbox><TextBlock Text="nie przeszkadza, gdy sam trzymasz PPM" Style="{StaticResource GlassSub}"/></StackPanel>
-                                            <StackPanel Orientation="Horizontal" Margin="0,2"><Viewbox Width="13" Height="13" Margin="0,0,8,0"><Grid Width="24" Height="24"><Path Data="M5,12 L10,17 L20,7" Stroke="{StaticResource GlassOkBrush}" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/></Grid></Viewbox><TextBlock Text="2 s przerwy po rzucie perłą lub śnieżką" Style="{StaticResource GlassSub}"/></StackPanel>
-                                        </StackPanel>
-                                    </Border>
+                                    <DockPanel Margin="2,8,0,0">
+                                        <Button DockPanel.Dock="Right" Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
+                                            <Button.ToolTip>
+                                                <ToolTip Style="{StaticResource InfoToolTipStyle}"
+                                                         Content="AUTO GUARD (blockhit): bind włącza i wyłącza tapowanie PPM. Tap to krótkie kliknięcie PPM co ustawiony odstęp, wykonywane równolegle z AUTO LPM.&#10;&#10;Działa tylko wtedy, gdy AUTO LPM faktycznie klika (nie w trybie podwójnego kliknięcia i nie przy włączonym AUTO PPM). Nie przeszkadza, gdy sam trzymasz PPM. Po rzucie perłą lub śnieżką szybką akcją czeka 2 s, żeby blok nie anulował rzutu."/>
+                                            </Button.ToolTip>
+                                        </Button>
+                                        <TextBlock Text="Tylko gdy AUTO LPM faktycznie klika. Nie przeszkadza, gdy sam trzymasz PPM. Po rzucie perłą lub śnieżką czeka 2 s." Style="{StaticResource GlassSub}" TextWrapping="Wrap"/>
+                                    </DockPanel>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
 
-                        <Border Style="{StaticResource GlassCard}">
+                        <!-- Funkcje działające przy trzymanym bindzie -->
+                        <Border Style="{StaticResource GlassCard}" Padding="14,10">
                             <StackPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                    <TextBlock Text="Działa, dopóki trzymasz" Style="{StaticResource GlassH2}"/>
-                                    <Button Content="?" Style="{StaticResource InfoButtonStyle}">
-                                        <Button.ToolTip>
-                                            <ToolTip Style="{StaticResource InfoToolTipStyle}"
-                                                     Content="Ta funkcja działa tylko podczas trzymania binda w aktywnym oknie Minecrafta.&#10;&#10;ZAMROŻENIE OKNA: wstrzymuje wątek gry; puszczenie binda go wznawia. Windows po ok. 5 s oznacza zamrożone okno jako „nie odpowiada” — wtedy gra jest wznawiana wcześniej.&#10;&#10;Zamrożenie kończy się zawsze: po puszczeniu binda, po maksymalnym czasie, po utracie fokusu gry i przy zamknięciu programu."/>
-                                        </Button.ToolTip>
-                                    </Button>
-                                </StackPanel>
                                 <Grid Name="RowSpaceSpam" Margin="0,4,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GlassNeutralSoftBrush}">
+                                    <Border Width="28" Height="28" CornerRadius="9" Background="{DynamicResource GlassNeutralSoftBrush}">
                                         <Viewbox Width="16" Height="16"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,10 V14 H20 V10"/></Grid></Viewbox>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
@@ -579,41 +678,53 @@
                                     </Border>
                                 </StackPanel>
                                 <Border Name="DividerAfterSpaceSpam" Style="{StaticResource GlassDivider}" Margin="0,10,0,6"/>
-                                <Grid Margin="0,4,0,0">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GlassNeutralSoftBrush}">
-                                        <Viewbox Width="16" Height="16"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M12,2 V22 M4.9,6.5 L19.1,17.5 M19.1,6.5 L4.9,17.5"/></Grid></Viewbox>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <Button Style="{StaticResource RowTextButton}" HorizontalContentAlignment="Stretch" Click="BtnFreezeDetails_Click" AutomationProperties.Name="Szczegóły zamrożenia okna">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="Zamrożenie okna" FontSize="13" FontWeight="Bold"/>
+                                                <TextBlock Name="TxtFreezeArrow" Text="▸" Foreground="{DynamicResource GlassInk2Brush}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Name="TxtFreezeWindowSub" Text="Działa, dopóki trzymasz · maks. 10 s" Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="1" Margin="8,0,0,0" MinWidth="58" VerticalAlignment="Center">
+                                        <Grid>
+                                            <TextBox Name="TxtFreezeWindowBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="FreezeWindow" Style="{StaticResource GlassKeyCap}" HorizontalAlignment="Stretch"/>
+                                            <Border Style="{StaticResource BindActionsOverlay}"><StackPanel Orientation="Horizontal">
+                                                <Button Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="FreezeWindow"/>
+                                                <Button Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="FreezeWindow">
+                                                    <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                                </Button>
+                                            </StackPanel></Border>
+                                        </Grid>
                                     </Border>
-                                    <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Zamrożenie okna" FontSize="13" FontWeight="SemiBold"/>
-                                        <TextBlock Name="TxtFreezeWindowSub" Text="Wstrzymuje wątek gry, puszczenie wznawia." Style="{StaticResource GlassSub}" TextTrimming="CharacterEllipsis"/>
-                                    </StackPanel>
-                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="2" VerticalAlignment="Center">
-                                        <DockPanel>
-                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="FreezeWindow">
-                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
-                                            </Button>
-                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="FreezeWindow"/>
-                                            <TextBox Name="TxtFreezeWindowBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="FreezeWindow" Style="{StaticResource GlassKeyCap}"/>
-                                        </DockPanel>
-                                    </Border>
-                                    <CheckBox Name="ChkFreezeWindowEnabled" Grid.Column="3" Margin="10,0,0,0" VerticalAlignment="Center" ToolTip="Włącz: Zamrożenie okna" AutomationProperties.Name="Włącz: Zamrożenie okna" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed"/>
+                                    <CheckBox Name="ChkFreezeWindowEnabled" Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Center" ToolTip="Włącz: Zamrożenie okna" AutomationProperties.Name="Włącz: Zamrożenie okna" Checked="PvpExtrasCheck_Changed" Unchecked="PvpExtrasCheck_Changed"/>
                                 </Grid>
-                                <StackPanel Name="PanelFreezeWindowContent" Margin="0,8,0,0">
+                                <StackPanel Name="PanelFreezeWindowContent" Margin="0,10,0,0">
                                     <Border Style="{StaticResource GlassInset}" Padding="12,8">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="128"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="58"/></Grid.ColumnDefinitions>
                                             <TextBlock Text="Maks. czas" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center"/>
                                             <Slider Name="SliderFreezeWindowMaxSeconds" Grid.Column="1" Minimum="1" Maximum="30" Value="10" SmallChange="1" LargeChange="5" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center" AutomationProperties.Name="Maks. czas" ValueChanged="PvpExtrasSlider_ValueChanged"/>
                                             <TextBlock Name="TxtFreezeWindowMaxSeconds" Grid.Column="2" Text="10 s" FontFamily="{StaticResource GlassMonoFont}" FontWeight="SemiBold" Foreground="{DynamicResource GlassAccentInkBrush}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                                         </Grid>
                                     </Border>
-                                    <TextBlock Text="Potem gra rusza sama, nawet jeśli dalej trzymasz klawisz." Style="{StaticResource GlassSub}" Margin="2,6,0,0"/>
+                                    <DockPanel Margin="2,8,0,0">
+                                        <Button DockPanel.Dock="Right" Content="?" Style="{StaticResource InfoButtonStyle}" VerticalAlignment="Top">
+                                            <Button.ToolTip>
+                                                <ToolTip Style="{StaticResource InfoToolTipStyle}"
+                                                         Content="Ta funkcja działa tylko podczas trzymania binda w aktywnym oknie Minecrafta.&#10;&#10;ZAMROŻENIE OKNA: wstrzymuje wątek gry; puszczenie binda go wznawia. Windows po ok. 5 s oznacza zamrożone okno jako „nie odpowiada” — wtedy gra jest wznawiana wcześniej.&#10;&#10;Zamrożenie kończy się zawsze: po puszczeniu binda, po maksymalnym czasie, po utracie fokusu gry i przy zamknięciu programu."/>
+                                            </Button.ToolTip>
+                                        </Button>
+                                        <TextBlock Text="Wstrzymuje wątek gry, puszczenie wznawia. Po maksymalnym czasie, utracie fokusu albo zamknięciu programu gra rusza sama." Style="{StaticResource GlassSub}" TextWrapping="Wrap"/>
+                                    </DockPanel>
                                 </StackPanel>
                                 <Border Name="DividerBeforeLagSwitch" Style="{StaticResource GlassDivider}" Margin="0,10,0,6"/>
                                 <Grid Name="RowLagSwitch" Margin="0,4,0,0">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <Border Width="28" Height="28" CornerRadius="9" Background="{StaticResource GlassNeutralSoftBrush}">
+                                    <Border Width="28" Height="28" CornerRadius="9" Background="{DynamicResource GlassNeutralSoftBrush}">
                                         <Viewbox Width="16" Height="16"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M2,9 A15,15 0 0 1 22,9 M5.5,12.5 A10,10 0 0 1 18.5,12.5 M9,16 A5,5 0 0 1 15,16 M3,3 L21,21"/></Grid></Viewbox>
                                     </Border>
                                     <StackPanel Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
@@ -647,7 +758,6 @@
                                         <TextBlock Name="TxtLagSwitchStatus" Text="okno UAC przy pierwszym użyciu" Style="{StaticResource GlassSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                     </WrapPanel>
                                 </StackPanel>
-                                <TextBlock Text="Zamrożenie kończy się też po utracie fokusu gry i przy zamknięciu programu." Style="{StaticResource GlassSub}" TextWrapping="Wrap" Margin="0,12,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -776,7 +886,7 @@
                                         </DockPanel>
                                         <ProgressBar Name="PrgAppleRepair" Height="6" Minimum="0" Maximum="40" Value="0" Margin="0,0,0,12"/>
                                         <Border Style="{StaticResource GlassInset}">
-                                            <TextBlock Name="TxtAppleCutterStatus" Text="Gotowe. Ustaw sloty, czasy i bind." Style="{StaticResource GlassSub}" Foreground="{StaticResource GlassOkBrush}"/>
+                                            <TextBlock Name="TxtAppleCutterStatus" Text="Gotowe. Ustaw sloty, czasy i bind." Style="{StaticResource GlassSub}" Foreground="{DynamicResource GlassOkBrush}"/>
                                         </Border>
                                     </StackPanel>
                                 </StackPanel>
@@ -919,7 +1029,7 @@
                                             </StackPanel>
                                         </DockPanel>
                                         <Border Style="{StaticResource GlassInset}">
-                                            <TextBlock Name="TxtAutoArmorStatus" Style="{StaticResource GlassSub}" Foreground="{StaticResource GlassOkBrush}"/>
+                                            <TextBlock Name="TxtAutoArmorStatus" Style="{StaticResource GlassSub}" Foreground="{DynamicResource GlassOkBrush}"/>
                                         </Border>
                                     </StackPanel>
                                 </StackPanel>
@@ -953,7 +1063,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <ComboBox Name="CbTargetProcess" DisplayMemberPath="DisplayName"/>
+                                    <ComboBox Name="CbTargetProcess" Tag="Nie znaleziono gry — uruchom Minecrafta i odśwież" DisplayMemberPath="DisplayName"/>
                                     <Button Grid.Column="1" Style="{StaticResource GlassIconButton}" Margin="8,0,0,0" ToolTip="Odśwież listę gier" Click="BtnRefreshProcesses_Click">
                                         <Viewbox Width="16" Height="16"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2.2" Data="M20,11 A8,8 0 1 0 17.7,16.7 M20,5 V11 H14"/></Grid></Viewbox>
                                     </Button>
@@ -961,6 +1071,29 @@
                                 </Grid>
                                 <TextBlock Name="TxtWindowStatus" Text="Nie wybrano procesu Minecrafta" Style="{StaticResource GlassSub}" Margin="0,8,0,0"/>
                                 <TextBlock Text="Klika tylko w tej grze i tylko gdy jest na wierzchu." Style="{StaticResource GlassSub}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Kapitulacja: jeden bind wyłącza wszystko, także przy otwartym GUI -->
+                        <Border Style="{StaticResource GlassCard}">
+                            <StackPanel>
+                                <TextBlock Text="Kapitulacja" Style="{StaticResource GlassH2}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Wyłącza naraz wszystkie działające makra. Działa też przy otwartym ekwipunku, czacie i GUI, gdy zwykły bind nie reaguje." Style="{StaticResource GlassSub}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Bind" Style="{StaticResource GlassOptionTitle}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                    <Border Style="{StaticResource GlassBindField}" Grid.Column="1" HorizontalAlignment="Left">
+                                        <DockPanel>
+                                            <Button DockPanel.Dock="Right" Style="{StaticResource GlassMiniIconButton}" ToolTip="Usuń bind" Click="BtnClearBind_Click" Tag="Panic">
+                                                <Viewbox Width="15" Height="15"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="M4,7 H20 M10,11 V17 M14,11 V17 M6,7 L7,20 H17 L18,7 M9,7 V4 H15 V7"/></Grid></Viewbox>
+                                            </Button>
+                                            <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource GlassBindSaveButton}" Click="BtnSaveBind_Click" Tag="Panic"/>
+                                            <TextBox Name="TxtPanicBind" PreviewMouseLeftButtonDown="BindBox_PreviewMouseLeftButtonDown" Tag="Panic" Style="{StaticResource GlassKeyCap}"/>
+                                        </DockPanel>
+                                    </Border>
+                                    <Button Grid.Column="2" Content="Wyłącz wszystko" Style="{StaticResource GlassDangerButton}" VerticalAlignment="Center" Margin="10,0,0,0" Click="BtnPanicNow_Click" ToolTip="Wyłącza teraz wszystkie działające makra"/>
+                                </Grid>
+                                <TextBlock Text="Ustaw klawisz, którego nie używasz na czacie — zadziała też podczas pisania." Style="{StaticResource GlassSub}" TextWrapping="Wrap" Margin="0,8,0,0"/>
                             </StackPanel>
                         </Border>
 
@@ -1011,7 +1144,24 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Wygląd: motyw (jasny / ciemny / jak w Windows) i akcent. -->
                         <Border Style="{StaticResource GlassCard}">
+                            <StackPanel>
+                                <TextBlock Text="Wygląd" Style="{StaticResource GlassH2}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+                                <TextBlock Text="Motyw" Style="{StaticResource GlassLabel}"/>
+                                <Border Style="{StaticResource GlassSegmentHost}" HorizontalAlignment="Stretch" Margin="0,0,0,12">
+                                    <UniformGrid Rows="1">
+                                        <RadioButton Name="RbThemeLight" GroupName="GlassThemeMode" Style="{StaticResource GlassSegment}" Tag="light" AutomationProperties.Name="Motyw jasny" Checked="ThemeMode_Checked">
+                                            <StackPanel Orientation="Horizontal"><Viewbox Width="14" Height="14" Margin="0,0,6,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2" Data="M12,8 A4,4 0 1 0 12,16 A4,4 0 1 0 12,8 Z M12,2 V4 M12,20 V22 M4.9,4.9 L6.3,6.3 M17.7,17.7 L19.1,19.1 M2,12 H4 M20,12 H22 M4.9,19.1 L6.3,17.7 M17.7,6.3 L19.1,4.9"/></Grid></Viewbox><TextBlock Text="Jasny" VerticalAlignment="Center"/></StackPanel>
+                                        </RadioButton>
+                                        <RadioButton Name="RbThemeDark" GroupName="GlassThemeMode" Style="{StaticResource GlassSegment}" Tag="dark" AutomationProperties.Name="Motyw ciemny" Checked="ThemeMode_Checked">
+                                            <StackPanel Orientation="Horizontal"><Viewbox Width="14" Height="14" Margin="0,0,6,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2" Data="M20.5,13.5 A8.5,8.5 0 1 1 10.5,3.5 A6.6,6.6 0 0 0 20.5,13.5 Z"/></Grid></Viewbox><TextBlock Text="Ciemny" VerticalAlignment="Center"/></StackPanel>
+                                        </RadioButton>
+                                        <RadioButton Name="RbThemeSystem" GroupName="GlassThemeMode" Style="{StaticResource GlassSegment}" Tag="system" AutomationProperties.Name="Motyw jak w Windows" Checked="ThemeMode_Checked">
+                                            <StackPanel Orientation="Horizontal"><Viewbox Width="14" Height="14" Margin="0,0,6,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2" Data="M4,5 H20 A1,1 0 0 1 21,6 V15 A1,1 0 0 1 20,16 H4 A1,1 0 0 1 3,15 V6 A1,1 0 0 1 4,5 Z M8,20 H16 M12,16 V20"/></Grid></Viewbox><TextBlock Text="Jak w Windows" VerticalAlignment="Center"/></StackPanel>
+                                        </RadioButton>
+                                    </UniformGrid>
+                                </Border>
                             <DockPanel>
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                                     <RadioButton Name="RbAccentKoral" GroupName="GlassAccent" AutomationProperties.Name="Akcent Koral" Style="{StaticResource GlassChoiceRadio}" Tag="koral" Margin="6,0,0,0" Checked="AccentSwatch_Checked">
@@ -1024,8 +1174,9 @@
                                         <StackPanel Orientation="Horizontal"><Ellipse Width="16" Height="16" Margin="0,0,7,0"><Ellipse.Fill><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Offset="0" Color="#0369A1"/><GradientStop Offset="1" Color="#4F46E5"/></LinearGradientBrush></Ellipse.Fill></Ellipse><TextBlock Text="Ocean" VerticalAlignment="Center"/></StackPanel>
                                     </RadioButton>
                                 </StackPanel>
-                                <TextBlock Text="Akcent" Style="{StaticResource GlassH2}" VerticalAlignment="Center"/>
+                                <TextBlock Text="Akcent" Style="{StaticResource GlassLabel}" VerticalAlignment="Center" Margin="0"/>
                             </DockPanel>
+                            </StackPanel>
                         </Border>
 
 
@@ -1043,8 +1194,9 @@
                                     <TextBlock Text="Sprawdza GitHub przy starcie. Tylko zgłasza — nic nie pobiera." Style="{StaticResource GlassSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                 </DockPanel>
                                 <Border Style="{StaticResource GlassInset}" Margin="0,10,0,0" Padding="10,8">
-                                    <TextBlock Name="TxtSettingsPath" FontFamily="{StaticResource GlassMonoFont}" FontSize="11" Foreground="{StaticResource GlassInk2Brush}" TextWrapping="Wrap"/>
+                                    <TextBlock Name="TxtSettingsPath" FontFamily="{StaticResource GlassMonoFont}" FontSize="11" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap"/>
                                 </Border>
+                                <Button Name="BtnShowTutorial" Content="Pokaż samouczek" HorizontalAlignment="Left" Margin="0,10,0,0" Click="BtnShowTutorial_Click" ToolTip="Cały samouczek w trybie ćwiczeń — nic tam nie zmienia ustawień."/>
                                 <TextBlock Style="{StaticResource GlassSub}" Margin="2,10,0,0">
                                     <Run Text="SzybkiPoPiwo ·"/>
                                     <Hyperlink NavigateUri="https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0" RequestNavigate="Hyperlink_RequestNavigate">github.com/SzybkiPoPiwo/Minecraft-Helper-3.0</Hyperlink>
@@ -1061,10 +1213,10 @@
         </TabControl>
 
         <!-- Stopka -->
-        <Border Grid.Row="2" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="0,1,0,0" Padding="16,8,16,11" Margin="0,6,0,0">
+        <Border Grid.Row="2" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="0,1,0,0" Padding="16,8,16,11" Margin="0,6,0,0">
             <DockPanel>
-                <Ellipse Name="StatusDot" Width="7" Height="7" Fill="{StaticResource GlassOkBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                <TextBlock Name="TxtStatus" Text="Gotowy" FontSize="11.5" Foreground="{StaticResource GlassOkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                <Ellipse Name="StatusDot" Width="7" Height="7" Fill="{DynamicResource GlassOkBrush}" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Name="TxtStatus" Text="Gotowy" FontSize="11.5" Foreground="{DynamicResource GlassOkBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
             </DockPanel>
         </Border>
     </Grid>

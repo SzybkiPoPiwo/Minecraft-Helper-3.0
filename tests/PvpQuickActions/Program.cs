@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -28,6 +29,8 @@ internal static class Program
 
             using (var window = new MinecraftHelper.MainWindow())
                 window.VerifyCancellationGuards();
+
+            VerifyClickerInputRules();
 
             VerifyGameWindowFinder();
 
@@ -75,6 +78,53 @@ internal static class Program
         Check(GameWindowFinder.FindAll().All(candidate => candidate.ProcessId != Environment.ProcessId), "own process is never listed");
     }
 
+    // Trzymany PPM wstrzymuje AUTO PPM, a kapitulacja wyłącza wszystko także przy otwartym GUI.
+    private static void VerifyClickerInputRules()
+    {
+        foreach (string mode in new[] { "Toggle", "Hold" })
+            Check(PvpInputPolicies.PausesRightWhileUserHolds(mode), $"{mode}: held PPM pauses AUTO PPM");
+        foreach (string mode in new[] { "Combo", "PhysicalToggle", "DoubleClick" })
+            Check(!PvpInputPolicies.PausesRightWhileUserHolds(mode), $"{mode}: holding PPM keeps its own meaning");
+
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "MinecraftHelper.slnx")))
+            directory = directory.Parent;
+        string pvp = Path.Combine(directory!.FullName, "MinecraftHelper.Pvp");
+        string window = File.ReadAllText(Path.Combine(pvp, "MainWindow.xaml.cs"));
+        string scheduler = File.ReadAllText(Path.Combine(pvp, "Services", "LightweightClickScheduler.cs"));
+        Check(window.Split("if (pressed && !blockedByCursor)").Length == 4,
+            "with a GUI open the clicker binds stay blocked, as before");
+
+        // Każdy krok samouczka ma swój zrzut i prowadzi do istniejącej zakładki.
+        string tutorial = File.ReadAllText(Path.Combine(pvp, "AutoClickerTutorial.cs"));
+        var steps = System.Text.RegularExpressions.Regex.Matches(tutorial, "new\\(\"([^\"]+)\", \"(view-[^\"]+)\"");
+        Check(steps.Count > 0, "Auto Clicker tutorial has steps");
+        foreach (System.Text.RegularExpressions.Match step in steps)
+        {
+            Check(step.Groups[1].Value is "Ustawienia" or "Clicker" or "Akcje" or "Jabłka" or "Bindy" or "Zbroja", $"tutorial tab {step.Groups[1].Value} exists");
+            Check(File.Exists(Path.Combine(pvp, "Assets", "Tutorial", step.Groups[2].Value + ".png")), $"tutorial image {step.Groups[2].Value} exists");
+        }
+        Check(File.ReadAllText(Path.Combine(pvp, "MainWindow.xaml.cs")).Contains("!(tutorialShown && _isFirstRun)", StringComparison.Ordinal),
+            "after an update the release notes still follow the tutorial");
+
+        // Kapitulacja musi działać przy GUI i obejmować każde makro.
+        string panic = File.ReadAllText(Path.Combine(pvp, "MainWindow.Panic.cs"));
+        int panicRead = window.IndexOf("IsBindPressed(TxtPanicBind.Text, ref _panicBindWasDown)", StringComparison.Ordinal);
+        int panicStop = window.IndexOf("if (panicPressed && targetFocused)", StringComparison.Ordinal);
+        Check(panicRead >= 0 && panicRead < window.IndexOf("TryHandleBackgroundIdleRuntimeTick(now)", StringComparison.Ordinal),
+            "panic bind state is read before the idle gates");
+        Check(panicStop >= 0 && panicStop < window.IndexOf("bool cursorVisible = shouldProbeCursor", StringComparison.Ordinal),
+            "panic does not depend on the GUI cursor guard");
+        foreach (string stop in new[] { "CancelAppleCutter(", "CancelPvpQuickAction(", "CancelAutoArmor(", "ResetBindyStage()", "StopClickerRuntimesForExclusivePointerMacro()", "_autoGuardRuntimeEnabled = false", "StopPvpExtras()", "_suppressBindToggleUntilRelease = true" })
+            Check(panic.Contains(stop, StringComparison.Ordinal), $"panic covers {stop}");
+        Check(window.Contains("(\"Panic\", TxtPanicBind.Text, \"Kapitulacja\")", StringComparison.Ordinal), "panic bind takes part in conflict checks");
+
+        Check(scheduler.Contains("_isPhysicalPointerDown(VkRightButton)", StringComparison.Ordinal)
+                && window.Contains("SetRightUserHoldPause(", StringComparison.Ordinal)
+                && window.Contains("|| rightYieldsToHold", StringComparison.Ordinal),
+            "AUTO PPM reads the hook state and the hook runs while it clicks");
+    }
+
     internal static void Check(bool condition, string description)
     {
         if (!condition)
@@ -86,7 +136,16 @@ internal static class Program
 namespace MinecraftHelper
 {
     internal enum OverlayHudTone { Warning }
-    internal readonly record struct OverlayHudEntry(string Title, string Body, OverlayHudTone Tone, bool Emphasize);
+    internal enum OverlayHudIcon { None, Bolt }
+    internal enum OverlayHudColor { Auto, Warn, Ink }
+    internal readonly record struct OverlayHudEntry(string Title, string Body, OverlayHudTone Tone, bool Emphasize)
+    {
+        public OverlayHudIcon Icon { get; init; }
+        public string? Badge { get; init; }
+        public OverlayHudColor BadgeColor { get; init; }
+        public string? Headline { get; init; }
+        public OverlayHudColor HeadlineColor { get; init; }
+    }
 
     // Only the UI/input host is substituted. Both the action state machine and
     // click scheduler are linked unchanged from production. No Window is opened.

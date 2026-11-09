@@ -45,6 +45,8 @@ internal static partial class Program
             VerifyChatInputBarrier();
             VerifyAppLog();
             VerifyDiscordSettings();
+            VerifyUpdateNotes();
+            VerifyMiningToolSlot();
             VerifyMarkerResourcePack();
             VerifyEmergencyDamageSoundArming();
             VerifyEmergencyReconnectOptIn();

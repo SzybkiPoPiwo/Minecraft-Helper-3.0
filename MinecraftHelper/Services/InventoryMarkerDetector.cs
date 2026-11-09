@@ -53,6 +53,13 @@ namespace MinecraftHelper.Services
 
     internal static class InventoryMarkerDetector
     {
+        // Sloty 0–26 to główne EQ, 27–35 pasek na dole (H1–H9).
+        public const int MainSlotCount = 27;
+        public const int AllSlotCount = 36;
+        public const int ToolHotbarSlot = 27;
+        public const int FoodHotbarSlot = 28;
+        public const string PickaxeItemId = "diamond_pickaxe";
+
         private const int GuiWidth = 176;
         private const int GuiHeight = 166;
         private const int TopLeftMarkerX = 1;
@@ -179,12 +186,17 @@ namespace MinecraftHelper.Services
             var allNonCobblestoneItems = new List<DetectedInventoryItem>();
             var unknownMarkerSlots = new List<int>();
             var fullCobblestoneSlots = new List<int>();
-            for (int slot = 0; slot < 27; slot++)
+            for (int slot = 0; slot < AllSlotCount; slot++)
             {
+                // Pasek na dole tylko na wyraźny wybór slotu, a H1 (kilof) nigdy.
+                bool hotbar = slot >= MainSlotCount;
+                if (hotbar && (slot == ToolHotbarSlot || enabledSlots == null || !enabledSlots.Contains(slot)))
+                    continue;
+
                 int column = slot % 9;
-                int row = slot / 9;
+                int logicalY = hotbar ? HotbarSlotStartY : SlotStartY + (slot / 9) * SlotStep;
                 int itemX = layout.Left + (SlotStartX + column * SlotStep) * layout.Scale;
-                int itemY = layout.Top + (SlotStartY + row * SlotStep) * layout.Scale;
+                int itemY = layout.Top + logicalY * layout.Scale;
                 int detectedQuantity = 0;
                 bool looksLikeCobblestone = LooksLikeCobblestone(pixels, itemX, itemY, layout.Scale);
                 bool looksLikeProtectedCobblestone = LooksLikeCobblestone(
@@ -195,7 +207,7 @@ namespace MinecraftHelper.Services
                     minimumNeutralTexturePixels: 180,
                     minimumDarkTexturePixels: 80);
                 int markerX = layout.Left + (SlotStartX + column * SlotStep + ItemMarkerX) * layout.Scale;
-                int markerY = layout.Top + (SlotStartY + row * SlotStep + ItemMarkerY) * layout.Scale;
+                int markerY = layout.Top + (logicalY + ItemMarkerY) * layout.Scale;
                 bool hasKnownItem = TryMatchItemMarker(pixels, markerX, markerY, layout.Scale, out string? itemId);
                 if (!hasKnownItem
                     && TryMatchSolidBlockItem(pixels, itemX, itemY, layout.Scale, out string solidBlockItemId))
@@ -215,7 +227,8 @@ namespace MinecraftHelper.Services
                     looksLikeProtectedCobblestone = false;
                 }
 
-                if (looksLikeCobblestone && MatchesStackCount64(pixels, itemX, itemY, layout.Scale))
+                // Próg CobbleX liczy tylko główne EQ — pasek na dole go nie zmienia.
+                if (!hotbar && looksLikeCobblestone && MatchesStackCount64(pixels, itemX, itemY, layout.Scale))
                 {
                     fullCobblestoneSlots.Add(slot);
                     detectedQuantity = 64;
@@ -243,7 +256,9 @@ namespace MinecraftHelper.Services
                 bool occupied = hasKnownItem
                     || hasLegacyMarker
                     || (supportsFullInventoryScan && LooksLikeOccupiedSlot(pixels, itemX, itemY, layout.Scale));
-                if (occupied && !looksLikeProtectedCobblestone)
+                // „Wszystko poza cobblestone”: zostaje cobblestone i diamentowy kilof, reszta z wybranych slotów leci.
+                bool isPickaxe = hasKnownItem && string.Equals(itemId, PickaxeItemId, StringComparison.OrdinalIgnoreCase);
+                if (occupied && !looksLikeProtectedCobblestone && !isPickaxe)
                 {
                     if (detectedQuantity == 0)
                         detectedQuantity = DetectStackCount(pixels, itemX, itemY, layout.Scale);
@@ -298,6 +313,20 @@ namespace MinecraftHelper.Services
             }
 
             return false;
+        }
+
+        /// <summary>Czy w danym slocie otwartego EQ leży przedmiot o tym znaczniku.</summary>
+        public static bool IsItemInSlot(Bitmap bitmap, InventoryMarkerLayout layout, int slot, string itemId)
+        {
+            if (bitmap == null || layout.Scale <= 0 || slot < 0 || slot >= AllSlotCount)
+                return false;
+
+            using var pixels = new PixelReader(bitmap);
+            int logicalY = slot < MainSlotCount ? SlotStartY + (slot / 9) * SlotStep : HotbarSlotStartY;
+            int markerX = layout.Left + (SlotStartX + slot % 9 * SlotStep + ItemMarkerX) * layout.Scale;
+            int markerY = layout.Top + (logicalY + ItemMarkerY) * layout.Scale;
+            return TryMatchItemMarker(pixels, markerX, markerY, layout.Scale, out string detectedItemId)
+                && string.Equals(detectedItemId, itemId, StringComparison.OrdinalIgnoreCase);
         }
 
         public static IReadOnlyList<DetectedInventoryItem> ReadMarkedItems(Bitmap bitmap, InventoryMarkerLayout layout, bool includeHotbar)

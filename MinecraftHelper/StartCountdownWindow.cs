@@ -104,10 +104,10 @@ internal sealed class StartCountdownWindow : Window
         {
             Margin = new Thickness(16),
             CornerRadius = new CornerRadius(20),
-            Background = new SolidColorBrush(Color.FromArgb(0xF2, 0xFF, 0xFF, 0xFF)),
-            BorderBrush = Brushes.White,
+            Background = GlassPalette.Popup,
+            BorderBrush = GlassPalette.PopupStroke,
             BorderThickness = new Thickness(1),
-            Effect = new DropShadowEffect { BlurRadius = 22, ShadowDepth = 5, Direction = 270, Opacity = 0.2, Color = Color.FromRgb(0x1E, 0x24, 0x50) },
+            Effect = new DropShadowEffect { BlurRadius = 22, ShadowDepth = 5, Direction = 270, Opacity = GlassPalette.IsDark ? 0.45 : 0.2, Color = GlassPalette.ShadowColor },
             Child = panel
         };
 

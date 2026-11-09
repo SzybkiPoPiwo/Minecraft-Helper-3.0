@@ -94,6 +94,7 @@ public partial class MainWindow
         _settings.AutoLeftJitterChance = Math.Clamp(_settings.AutoLeftJitterChance, 0, 100);
         _settings.AutoLeftJitterDispersion = Math.Clamp(_settings.AutoLeftJitterDispersion, 1, 10);
         _settings.AutoLeftSneakKey = NormalizeControlKey(_settings.AutoLeftSneakKey, "LeftShift");
+        _settings.PanicBind ??= string.Empty;
         _settings.AutoGuardBind ??= string.Empty;
         _settings.AutoGuardIntervalMs = Math.Clamp(_settings.AutoGuardIntervalMs, 50, 500);
         _settings.SpaceSpamBind ??= string.Empty;
@@ -108,6 +109,7 @@ public partial class MainWindow
         _settings.GlassAccent = string.IsNullOrWhiteSpace(_settings.GlassAccent)
             ? "koral"
             : GlassAccents.Normalize(_settings.GlassAccent);
+        _settings.ThemeMode = GlassThemeMode.Normalize(_settings.ThemeMode);
     }
 
     private void LoadPvpExtrasToUi()
@@ -123,6 +125,7 @@ public partial class MainWindow
             ChkAutoLeftSneakPause.IsChecked = _settings.AutoLeftSneakPauseEnabled;
             TxtAutoLeftSneakKey.Text = _settings.AutoLeftSneakKey;
 
+            TxtPanicBind.Text = _settings.PanicBind;
             ChkAutoGuardEnabled.IsChecked = _settings.AutoGuardEnabled;
             TxtAutoGuardBind.Text = _settings.AutoGuardBind;
             SliderAutoGuardMs.Value = _settings.AutoGuardIntervalMs;
@@ -152,6 +155,14 @@ public partial class MainWindow
                 _ => RbAccentKoral
             };
             accentButton.IsChecked = true;
+            RadioButton themeButton = _settings.ThemeMode switch
+            {
+                GlassThemeMode.Light => RbThemeLight,
+                GlassThemeMode.Dark => RbThemeDark,
+                _ => RbThemeSystem
+            };
+            themeButton.IsChecked = true;
+            GlassThemeMode.Apply(_settings.ThemeMode);
             GlassAccents.Apply(_settings.GlassAccent);
         }
         finally
@@ -172,6 +183,7 @@ public partial class MainWindow
         _settings.AutoLeftJitterDispersion = ReadSlider(SliderAutoLeftJitterDispersion);
         _settings.AutoLeftSneakPauseEnabled = ChkAutoLeftSneakPause.IsChecked == true;
         _settings.AutoLeftSneakKey = NormalizeControlKey(TxtAutoLeftSneakKey.Text, "LeftShift");
+        _settings.PanicBind = TxtPanicBind.Text.Trim();
         _settings.AutoGuardEnabled = ChkAutoGuardEnabled.IsChecked == true;
         _settings.AutoGuardBind = TxtAutoGuardBind.Text.Trim();
         _settings.AutoGuardIntervalMs = ReadSlider(SliderAutoGuardMs);
@@ -219,6 +231,21 @@ public partial class MainWindow
         MarkDirty();
     }
 
+    private bool _autoGuardDetailsOpen;
+    private bool _freezeDetailsOpen;
+
+    private void BtnAutoGuardDetails_Click(object sender, RoutedEventArgs e)
+    {
+        _autoGuardDetailsOpen = !_autoGuardDetailsOpen;
+        RefreshPvpExtrasUi(animate: true);
+    }
+
+    private void BtnFreezeDetails_Click(object sender, RoutedEventArgs e)
+    {
+        _freezeDetailsOpen = !_freezeDetailsOpen;
+        RefreshPvpExtrasUi(animate: true);
+    }
+
     private void OverlayCorner_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is not RadioButton { Tag: string corner })
@@ -232,6 +259,19 @@ public partial class MainWindow
             MarkDirty();
             RefreshOverlayHud(DateTime.UtcNow);
         }
+    }
+
+    private void ThemeMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_syncingExtrasUi || sender is not RadioButton { Tag: string mode })
+            return;
+
+        _settings.ThemeMode = GlassThemeMode.Normalize(mode);
+        GlassThemeMode.Apply(mode);
+        RefreshGlassHotbar();
+        _nextRuntimeUiRefreshUtc = DateTime.MinValue;
+        if (!_isLoadingUi)
+            MarkDirty();
     }
 
     private void AccentSwatch_Checked(object sender, RoutedEventArgs e)
@@ -301,9 +341,16 @@ public partial class MainWindow
         GlassMotion.SetExpanded(PanelAutoRightCps, !rightDouble, animate);
         GlassMotion.SetExpanded(PanelAutoLeftJitter, ChkAutoLeftJitter.IsChecked == true, animate);
         GlassMotion.SetExpanded(PanelAutoLeftSneak, ChkAutoLeftSneakPause.IsChecked == true, animate);
-        GlassMotion.SetExpanded(PanelAutoGuardContent, ChkAutoGuardEnabled.IsChecked == true, animate);
+        // Szczegóły rozwija kliknięcie opisu wiersza; wyłączony moduł zawsze je chowa.
+        TxtAutoGuardSub.Text = $"Tapuje PPM co {ReadSlider(SliderAutoGuardMs)} ms, gdy AUTO LPM klika";
+        TxtFreezeWindowSub.Text = $"Działa, dopóki trzymasz · maks. {ReadSlider(SliderFreezeWindowMaxSeconds)} s";
+        bool guardDetails = _autoGuardDetailsOpen && ChkAutoGuardEnabled.IsChecked == true;
+        bool freezeDetails = _freezeDetailsOpen && ChkFreezeWindowEnabled.IsChecked == true;
+        TxtAutoGuardArrow.Text = guardDetails ? "▾" : "▸";
+        TxtFreezeArrow.Text = freezeDetails ? "▾" : "▸";
+        GlassMotion.SetExpanded(PanelAutoGuardContent, guardDetails, animate);
         GlassMotion.SetExpanded(PanelSpaceSpamContent, ChkSpaceSpamEnabled.IsChecked == true, animate);
-        GlassMotion.SetExpanded(PanelFreezeWindowContent, ChkFreezeWindowEnabled.IsChecked == true, animate);
+        GlassMotion.SetExpanded(PanelFreezeWindowContent, freezeDetails, animate);
         GlassMotion.SetExpanded(PanelLagSwitchContent, ChkLagSwitchEnabled.IsChecked == true, animate);
         GlassMotion.SetExpanded(PanelOverlayPosition, ChkOverlayEnabled.IsChecked == true, animate);
         UpdateOverlayPreview();
@@ -332,6 +379,7 @@ public partial class MainWindow
         string guardState = ChkAutoGuardEnabled.IsChecked != true || !_autoGuardRuntimeEnabled ? "OFF" : "ON";
         TxtAutoGuardState.Text = guardState;
         ApplyStatePill(PillAutoGuardState, TxtAutoGuardState, guardState);
+        PillAutoGuardState.Visibility = guardState == "ON" ? Visibility.Visible : Visibility.Collapsed;
 
         if (!LagSwitchClient.AreDriverFilesPresent(out string missing))
         {
@@ -583,16 +631,43 @@ public partial class MainWindow
     private void AddPvpExtrasOverlayEntries(List<OverlayHudEntry> entries)
     {
         if (_leftDoubleClick?.IsArmed == true)
-            entries.Add(new OverlayHudEntry("AUTO LPM", $"PODWÓJNE • +{ReadSlider(SliderAutoLeftDoubleClickMs)} ms", OverlayHudTone.Active));
+            entries.Add(ExtrasEntry("AUTO LPM", OverlayHudIcon.Mouse, "PODWÓJNE", $"+{ReadSlider(SliderAutoLeftDoubleClickMs)} ms", "Drugie kliknięcie po każdym LPM"));
         if (_rightDoubleClick?.IsArmed == true)
-            entries.Add(new OverlayHudEntry("AUTO PPM", $"PODWÓJNE • +{ReadSlider(SliderAutoRightDoubleClickMs)} ms", OverlayHudTone.Active));
+            entries.Add(ExtrasEntry("AUTO PPM", OverlayHudIcon.Mouse, "PODWÓJNE", $"+{ReadSlider(SliderAutoRightDoubleClickMs)} ms", "Drugie kliknięcie po każdym PPM"));
         if (_autoGuardRuntimeEnabled)
-            entries.Add(new OverlayHudEntry("AUTO GUARD", $"ON • PPM co {ReadSlider(SliderAutoGuardMs)} ms", OverlayHudTone.Active));
+            entries.Add(ExtrasEntry("AUTO GUARD", OverlayHudIcon.Shield, "ON", $"PPM co {ReadSlider(SliderAutoGuardMs)} ms", "Blokowanie mieczem"));
         if (_spaceRepeater.IsRunning)
-            entries.Add(new OverlayHudEntry("SPACJA", $"co {ReadSlider(SliderSpaceSpamMs)} ms", OverlayHudTone.Active));
+            entries.Add(ExtrasEntry("SPACJA", OverlayHudIcon.Keyboard, "ON", $"co {ReadSlider(SliderSpaceSpamMs)} ms", "Powtarzanie skoku"));
         if (_gameFreezer.IsFrozen)
-            entries.Add(new OverlayHudEntry("ZAMROŻENIE", "gra wstrzymana", OverlayHudTone.Warning));
+            entries.Add(new OverlayHudEntry("ZAMROŻENIE", $"Wznowienie najpóźniej po {ReadSlider(SliderFreezeWindowMaxSeconds)} s", OverlayHudTone.Warning)
+            {
+                Icon = OverlayHudIcon.Snowflake,
+                Badge = "AKTYWNE",
+                BadgeColor = OverlayHudColor.Warn,
+                Headline = "Gra wstrzymana",
+                HeadlineColor = OverlayHudColor.Warn
+            });
         if (_lagRequested)
-            entries.Add(new OverlayHudEntry("LAG SWITCH", _lagSwitch?.State == LagSwitchState.Holding ? "pakiety wstrzymane" : "uruchamianie…", OverlayHudTone.Warning));
+        {
+            bool holding = _lagSwitch?.State == LagSwitchState.Holding;
+            entries.Add(new OverlayHudEntry("LAG SWITCH", holding ? "Pakiety czekają na zwolnienie" : "Włączanie pomocnika", OverlayHudTone.Warning)
+            {
+                Icon = OverlayHudIcon.Network,
+                Badge = holding ? "AKTYWNY" : "START",
+                BadgeColor = OverlayHudColor.Warn,
+                Headline = holding ? "Pakiety wstrzymane" : "Uruchamianie…",
+                HeadlineColor = OverlayHudColor.Warn
+            });
+        }
     }
+
+    private static OverlayHudEntry ExtrasEntry(string title, OverlayHudIcon icon, string badge, string headline, string detail) =>
+        new(title, detail, OverlayHudTone.Active)
+        {
+            Icon = icon,
+            Badge = badge,
+            BadgeColor = OverlayHudColor.Ok,
+            Headline = headline,
+            HeadlineColor = OverlayHudColor.Accent
+        };
 }

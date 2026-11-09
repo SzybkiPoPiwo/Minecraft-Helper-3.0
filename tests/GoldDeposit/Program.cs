@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Xml.Linq;
+using MinecraftHelper;
 using MinecraftHelper.Models;
 using MinecraftHelper.Services;
 using Drawing = System.Drawing;
@@ -25,7 +26,7 @@ internal static class Program
             DirectoryInfo? dir = new(AppContext.BaseDirectory);
             while (dir != null && !File.Exists(Path.Combine(dir.FullName, "MinecraftHelper.slnx"))) dir = dir.Parent;
             Root = dir?.FullName ?? throw new DirectoryNotFoundException("Repository not found.");
-            CheckFlow(); CheckFailures(); CheckClickGuard(); CheckManualTestSession(); CheckDetector(); CheckCursorQuantities(); CheckRealChestTexture(); CheckSettings(); CheckResetAndIntegration(); CheckGuiResources();
+            CheckFlow(); CheckFailures(); CheckClickGuard(); CheckManualTestSession(); CheckDetector(); CheckActionMap(); CheckEnderchestFlow(); CheckHotbarDiscard(); CheckCursorQuantities(); CheckRealChestTexture(); CheckSettings(); CheckResetAndIntegration(); CheckGuiResources();
             Console.WriteLine($"PASS: {_checks} checks; gold transfer stages, rejection/recovery, real TXT markers, GUI geometry, cancellation and settings. No windows, desktop input, screenshots or user data.");
             return 0;
         }
@@ -278,6 +279,167 @@ internal static class Program
         Check(!InventoryMarkerDetector.TryDetectChest(world, 6, out _, columns: 0) && !InventoryMarkerDetector.TryDetectChest(world, 6, out _, columns: 10), "invalid chest columns rejected");
     }
 
+    private static readonly EnderchestOptions Ec = new("/ec", "Ender Chest", 1000,
+        new HashSet<string> { "diamond" }, new HashSet<int> { 0, 1, 29 });
+
+    private static EnderchestObservation EcScreen(params DetectedInventoryItem[] items) => new(true, true, true, items);
+
+    private static EnderchestStep EcNext(EnderchestFlow flow, EnderchestObservation? screen = null) => flow.Tick(flow.NextAt, screen);
+
+    // Otwiera enderchest komendą i dochodzi do pierwszego odczytu.
+    private static EnderchestFlow EcOpened()
+    {
+        var flow = new EnderchestFlow(Ec, Start);
+        foreach (EnderchestAction expected in new[] { EnderchestAction.CloseInitialGui, EnderchestAction.OpenChat, EnderchestAction.TypeCommand, EnderchestAction.SubmitCommand })
+            Check(EcNext(flow).Action == expected, $"enderchest opening goes through {expected}");
+        Check(flow.NeedsScreen, "after the command the flow waits for the screen");
+        return flow;
+    }
+
+    private static void EcClickThrough(EnderchestFlow flow, int slot)
+    {
+        Check(EcNext(flow).Action == EnderchestAction.PressShift, "Shift goes down in its own step, after the cursor reached the slot");
+        EnderchestStep click = EcNext(flow);
+        Check(click.Action == EnderchestAction.ClickSlot && click.Slot == slot, "the click targets the detected stack");
+        Check(EcNext(flow).Action == EnderchestAction.ReleaseShift, "Shift is released in its own step, after the click");
+    }
+
+    // Mapa działania: kafelki mają układ, a „Przejdź do ustawienia” prowadzi do istniejących kart.
+    private static void CheckActionMap()
+    {
+        var all = new ActionMapSnapshot
+        {
+            MiningMode = "5/3/3", Bind = "F6", CommandCount = 2, AutoEq = true, IntervalSeconds = 120, SlotSummary = "27 z 27", DropSummary = "wybrane typy: 3",
+            CobbleX = true, CobbleXThreshold = "12", Enderchest = true, EnderchestCommand = "/ec", Gold = true, GoldCommand = "/bazar", Food = true,
+            Protection = true, ReconnectAfterAlarm = true, WaitSeconds = "30", Hud = true, Discord = true, DiscordConnected = true
+        };
+        var tiles = ActionMapCatalog.Build(all).ToDictionary(tile => tile.Id);
+        string xaml = File.ReadAllText(Path.Combine(Root, "MinecraftHelper/MainWindow.xaml"));
+        Check(tiles.Count == ActionMapCatalog.Layout.Count && tiles.Keys.All(ActionMapCatalog.Layout.ContainsKey), "every map tile has a place on the map");
+        foreach (ActionMapTile tile in tiles.Values.Concat(ActionMapCatalog.Build(all with { Uses633 = true })))
+        {
+            Check(tile.Tab == null || xaml.Contains($"<TabItem Name=\"{tile.Tab}\"", StringComparison.Ordinal), $"tile {tile.Id} opens an existing tab");
+            Check(tile.Targets.All(target => xaml.Contains($"Name=\"{target}\"", StringComparison.Ordinal)), $"tile {tile.Id} points to existing cards");
+        }
+
+        Check(tiles.Values.All(tile => tile.Enabled && tile.Warning.Length == 0), "with everything configured no tile is dimmed or warned");
+        Check(tiles["open"].Value == "co 120 s" && tiles["ender"].Value == "/ec" && tiles["start"].Value == "bind: F6", "tiles show the account's real settings");
+
+        var noEq = ActionMapCatalog.Build(all with { AutoEq = false }).ToDictionary(tile => tile.Id);
+        Check(new[] { "open", "scan", "drop", "cobble", "ender", "gold", "food" }.All(id => !noEq[id].Enabled) && noEq["back"].Enabled, "disabling Auto EQ dims the whole cycle");
+        var exitOnly = ActionMapCatalog.Build(all with { ReconnectAfterAlarm = false }).ToDictionary(tile => tile.Id);
+        Check(exitOnly["exit"].Enabled && !exitOnly["join"].Enabled && exitOnly["join"].Value == "tylko wyjście", "exit-only protection stops at Disconnect on the map");
+        var full = ActionMapCatalog.Build(all with { EnderchestFull = true }).ToDictionary(tile => tile.Id);
+        Check(full["ender"].Value == "pełny" && full["ender"].Warning.Length > 0, "a full enderchest shows on the map");
+
+        var detailed = ActionMapCatalog.Build(all with
+        {
+            Details = new Dictionary<string, IReadOnlyList<ActionMapDetail>> { ["ender"] = new[] { new ActionMapDetail("Komenda", "/ec") } }
+        }).ToDictionary(tile => tile.Id);
+        Check(detailed["ender"].Details.Count == 1 && detailed["ender"].Details[0].Value == "/ec" && detailed["mine"].Details.Count == 0, "a clicked tile lists its own current settings");
+
+        string live = File.ReadAllText(Path.Combine(Root, "MinecraftHelper/MainWindow.ActionMap.cs"));
+        Check(!live.Contains("TokenProtected", StringComparison.Ordinal) && !live.Contains("GetToken", StringComparison.Ordinal), "the bot token is never shown on the map");
+        foreach (string step in new[] { "WaitForInventory", "MoveToEnderchest", "DepositGold", "OpenCobbleXChat", "StartEating", "ResumeMining", "ReturnToMiningStart" })
+            Check(live.Contains("InventoryCleanupStage." + step, StringComparison.Ordinal), $"live map follows the {step} stage");
+    }
+
+    private static void CheckEnderchestFlow()
+    {
+        var diamond = new DetectedInventoryItem(0, "diamond", 12);
+        var flow = EcOpened();
+        EnderchestStep move = EcNext(flow, EcScreen(diamond, new DetectedInventoryItem(5, "diamond", 64), new DetectedInventoryItem(1, "coal", 64)));
+        Check(move.Action == EnderchestAction.MoveToSlot && move.Slot == 0, "only selected types from selected slots are moved");
+        EcClickThrough(flow, 0);
+        Check(EcNext(flow, EcScreen()).Action == EnderchestAction.None && flow.MovedStacks == 1 && flow.MovedItems == 12, "a stack counts as moved once it left its slot");
+        Check(EcNext(flow, EcScreen()).Action == EnderchestAction.CloseMenu, "the enderchest is closed when nothing is left");
+        Check(EcNext(flow, new(false, false, true, Array.Empty<DetectedInventoryItem>())).Action == EnderchestAction.Complete && flow.Warning.Length == 0, "closing completes the step without a warning");
+
+        flow = EcOpened();
+        EcNext(flow, EcScreen(diamond));
+        EcClickThrough(flow, 0);
+        EcNext(flow, EcScreen(diamond));
+        EcNext(flow, EcScreen(diamond));
+        Check(EcNext(flow, EcScreen(diamond)).Action == EnderchestAction.CloseMenu && flow.Warning.Contains("pełny"), "a full enderchest closes with a warning instead of stopping mining");
+        Check(flow.MovedStacks == 0 && flow.IsFull, "a stack still in its slot is not counted as moved and marks the enderchest as full");
+
+        flow = EcOpened();
+        var notOpened = new EnderchestObservation(false, false, true, Array.Empty<DetectedInventoryItem>(), "GUI jest zamknięte.");
+        EcNext(flow, notOpened);
+        EcNext(flow, notOpened);
+        Check(EcNext(flow, notOpened).Action == EnderchestAction.Complete && flow.Warning.Length > 0 && !flow.IsFull, "an enderchest that never opened is skipped, mining continues and it does not count as full");
+
+        flow = EcOpened();
+        var wrongMenu = new EnderchestObservation(true, false, true, Array.Empty<DetectedInventoryItem>(), "inny tytuł");
+        EcNext(flow, wrongMenu);
+        EcNext(flow, wrongMenu);
+        Check(EcNext(flow, wrongMenu).Action == EnderchestAction.CloseMenu && flow.Warning.Contains("inny tytuł"), "an unconfirmed menu is closed without clicking anything");
+
+        flow = EcOpened();
+        EcNext(flow, EcScreen(diamond));
+        EcClickThrough(flow, 0);
+        Check(EcNext(flow, new EnderchestObservation(true, true, false, Array.Empty<DetectedInventoryItem>())).Action == EnderchestAction.Stop, "an item left on the cursor stops mining");
+
+        Check(new EnderchestFlow(Ec with { Command = "ec" }, Start).Tick(Start).Action == EnderchestAction.Complete, "invalid settings skip the step instead of typing into chat");
+        Check(Ec with { ItemTypes = new HashSet<string>() } is { } noTypes && noTypes.Validate().Length > 0, "at least one item type is required");
+        Check(Ec.ValidateMenuTitle("Ender Chest").Length == 0 && Ec.ValidateMenuTitle("Bazar").Length > 0, "the window title must match before anything is moved");
+
+        string main = File.ReadAllText(Path.Combine(Root, "MinecraftHelper/MainWindow.xaml.cs"));
+        Check(main.Contains("item => !enderchestOptions.ItemTypes.Contains(item.ItemId)"), "items going to the enderchest are not dropped");
+        Check(main.Contains("_enderchestPending = scan.EnderchestItems.Length > 0 && !_enderchestFull;"), "a full enderchest stops further use of the command");
+        foreach (string miner in new[] { "533", "633" })
+        {
+            int start = main.IndexOf($"private void StartKopacz{miner}Runtime(DateTime now)", StringComparison.Ordinal);
+            Check(start > 0 && main.IndexOf("_enderchestFull = false;", start, StringComparison.Ordinal) < main.IndexOf($"StartMiningLogRun(InventoryCleanupOwner.Kopacz{miner});", start, StringComparison.Ordinal),
+                $"starting {miner} gives the enderchest one new attempt");
+        }
+        int enderchest = main.IndexOf("return InventoryCleanupStage.MoveToEnderchest;", StringComparison.Ordinal);
+        Check(enderchest > 0 && enderchest < main.IndexOf("return InventoryCleanupStage.DepositGold;", StringComparison.Ordinal), "the enderchest runs after CobbleX and before the gold deposit");
+    }
+
+    // Auto EQ i pasek na dole: co trafi do wyrzucenia na obrazie z prawdziwych tekstur paczki.
+    private static void CheckHotbarDiscard()
+    {
+        using Drawing.Bitmap gui = Texture("assets/minecraft/textures/gui/container/inventory.png");
+        using Drawing.Bitmap ingot = Texture("assets/minecraft/textures/items/gold_ingot.png");
+        using Drawing.Bitmap pickaxe = Texture("assets/minecraft/textures/items/diamond_pickaxe.png");
+        using var unknown = new Drawing.Bitmap(16, 16, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (Drawing.Graphics graphics = Drawing.Graphics.FromImage(unknown)) graphics.Clear(Drawing.Color.Firebrick);
+
+        foreach (int scale in new[] { 2, 3 })
+        {
+            int width = 854 * scale / 2, height = 480 * scale / 2;
+            var expected = new InventoryMarkerLayout((width - 176 * scale) / 2, (height - 166 * scale) / 2, scale);
+            using var frame = new Drawing.Bitmap(width, height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            using (Drawing.Graphics graphics = Drawing.Graphics.FromImage(frame)) graphics.Clear(Drawing.Color.DarkGreen);
+            for (int y = 0; y < 166; y++) for (int x = 0; x < 176; x++)
+            {
+                Drawing.Color color = gui.GetPixel(x, y);
+                if (color.A < 128) continue;
+                for (int sy = 0; sy < scale; sy++) for (int sx = 0; sx < scale; sx++)
+                    frame.SetPixel(expected.Left + x * scale + sx, expected.Top + y * scale + sy, color);
+            }
+
+            foreach ((int slot, Drawing.Bitmap item) in new[] { (0, ingot), (1, pickaxe), (2, unknown), (27, ingot), (29, ingot), (30, ingot), (31, pickaxe), (32, unknown) })
+                DrawItem(frame, item, expected.GetSlotCenter(slot), scale);
+
+            var enabled = new HashSet<int> { 0, 1, 2, 27, 29, 31, 32 };
+            var types = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "gold_ingot" };
+            Check(InventoryMarkerDetector.TryDetect(frame, enabled, types, out InventoryMarkerDetection selected) && selected.HasGuiMarkers && selected.Layout.Scale == scale && Math.Abs(selected.Layout.Left - expected.Left) <= scale && Math.Abs(selected.Layout.Top - expected.Top) <= scale,
+                $"inventory with hotbar items is recognised at GUI x{scale}");
+            Check(selected.MarkedSlots.OrderBy(slot => slot).SequenceEqual(new[] { 0, 29 }),
+                "selected item types are found in chosen hotbar slots only; H1 and unselected slots are never touched");
+            Check(selected.AllNonCobblestoneSlots.OrderBy(slot => slot).SequenceEqual(new[] { 0, 2, 29, 32 }),
+                "„everything except cobblestone” takes all but the pickaxe from chosen slots and never touches H1 or unchosen hotbar slots");
+            Check(!InventoryMarkerDetector.IsItemInSlot(frame, selected.Layout, InventoryMarkerDetector.ToolHotbarSlot, InventoryMarkerDetector.PickaxeItemId)
+                    && InventoryMarkerDetector.IsItemInSlot(frame, selected.Layout, 31, InventoryMarkerDetector.PickaxeItemId),
+                "the H1 pickaxe check reads exactly the requested hotbar slot");
+            Check(InventoryMarkerDetector.TryDetect(frame, null, null, out InventoryMarkerDetection unfiltered)
+                    && unfiltered.MarkedSlots.All(slot => slot < InventoryMarkerDetector.MainSlotCount),
+                "scans without a slot selection (recognising the screen, previews) stay limited to the main inventory");
+        }
+    }
+
     private static void CheckCursorQuantities()
     {
         using Drawing.Bitmap item = Texture("assets/minecraft/textures/items/gold_ingot.png");
@@ -449,6 +611,8 @@ internal static class Program
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         object host = RuntimeHelpers.GetUninitializedObject(type);
         type.GetField("_isLoadingUi", flags)!.SetValue(host, true);
+        FieldInfo sectionStates = type.GetField("_expandableSectionStates", flags)!; // okno bez konstruktora nie ma inicjalizatorów pól
+        sectionStates.SetValue(host, Activator.CreateInstance(sectionStates.FieldType));
         foreach (string name in new[] { "ChkGoldDepositEnabled", "PanelGoldDepositSettings", "PanelGoldDepositConfiguration", "TxtGoldDepositCommand", "TxtGoldDepositTitle", "TxtGoldDepositDelay", "ChkGoldDepositIngots", "ChkGoldDepositBlocks", "ChkGoldDepositHotbar", "BorderGoldDepositSlots", "PanelGoldDepositSlots", "TxtGoldDepositSelectedSlot", "TxtGoldDepositGridSize", "BtnGoldDepositAddRow", "BtnGoldDepositRemoveRow", "BtnGoldDepositAddColumn", "BtnGoldDepositRemoveColumn", "BtnGoldDepositReadTest", "BtnGoldDepositRunTest", "BtnGoldDepositStopTest", "TxtGoldDepositStatus" })
             type.GetField(name, flags)!.SetValue(host, view.FindName(name));
         type.GetField("ChkInventoryCleanupEnabled", flags)!.SetValue(host, new System.Windows.Controls.CheckBox { IsChecked = true });

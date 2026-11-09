@@ -46,7 +46,7 @@ namespace MinecraftHelper
         private AppSettings _settings;
         private readonly bool _isFirstRun;
         private readonly string _currentAppVersion;
-        private readonly bool _showStartupNotice;
+        private bool _showStartupNotice;
 
         private bool _pendingChanges = false;
         private readonly DispatcherTimer _dirtyTimer;
@@ -106,6 +106,19 @@ namespace MinecraftHelper
         private DateTime _nextKopacz633StageAtUtc = DateTime.UtcNow;
         private bool _kopacz633ResumeMiningPending;
         private DateTime _nextKopacz633ResumeAtUtc = DateTime.UtcNow;
+        private const int MiningToolSlotDelayMs = 300;
+        private const int MiningToolSlotGuiTimeoutMs = 3000;
+        private const int MiningToolInventoryWaitMs = 500;
+        private const int MiningToolReadRetryMs = 250;
+        private const int MiningToolMaximumReadAttempts = 4;
+
+        private enum MiningToolStage { None, OpenInventory, ReadInventory, SelectSlot }
+
+        private MiningToolStage _miningToolStage;
+        private DateTime _miningToolStageAtUtc;
+        private DateTime _miningToolDeadlineUtc;
+        private int _miningToolReadAttempts;
+        private bool _miningToolInventoryOpen;
         private Kopacz633CommandStage _kopacz633CommandStage = Kopacz633CommandStage.None;
         private bool _kopacz633CommandSequenceCompleted;
         private int _kopacz633CommandIndex;
@@ -377,6 +390,7 @@ namespace MinecraftHelper
             OpenCobbleXChat,
             TypeCobbleXCommand,
             SubmitCobbleXCommand,
+            MoveToEnderchest,
             DepositGold,
             SelectFoodSlot,
             StartEating,
@@ -405,10 +419,10 @@ namespace MinecraftHelper
 
         private BindTarget _bindCaptureTarget = BindTarget.None;
         private readonly Dictionary<BindTarget, string> _pendingBindValues = new Dictionary<BindTarget, string>();
-        private static readonly Brush BindIdleBorderBrush = new SolidColorBrush(GlassPalette.MapLegacyColor(75, 98, 131));
-        private static readonly Brush BindCaptureBorderBrush = new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36));
-        private static readonly Brush TileBindBrush = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
-        private static readonly Brush TileOffBrush = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
+        private static readonly Brush BindIdleBorderBrush = GlassPalette.LegacyBrush(75, 98, 131);
+        private static readonly Brush BindCaptureBorderBrush = GlassPalette.LegacyBrush(251, 191, 36);
+        private static readonly Brush TileBindBrush = GlassPalette.LegacyBrush(56, 214, 180);
+        private static readonly Brush TileOffBrush = GlassPalette.LegacyBrush(255, 107, 107);
         private static readonly object CursorAppearanceCacheLock = new object();
         private static readonly Dictionary<IntPtr, bool> CursorBlankAppearanceCache = new Dictionary<IntPtr, bool>();
 
@@ -593,6 +607,7 @@ namespace MinecraftHelper
                     _settings.LastAcknowledgedVersion,
                     _currentAppVersion,
                     StringComparison.OrdinalIgnoreCase));
+            PrepareStartupTutorial();
             _damageSoundDetector = new DamageSoundDetector();
             _damageSoundDetector.ProgressChanged += DamageSoundDetector_ProgressChanged;
             _damageSoundDetector.DamageDetected += DamageSoundDetector_DamageDetected;
@@ -648,6 +663,7 @@ namespace MinecraftHelper
             {
                 InitializeInventoryCleanupSlotGrid();
                 InitializeInventoryCleanupItemTypeGrid();
+                InitializeEnderchestItemTypeGrid();
                 InitializeAutoReconnectHomeSlotGrid();
                 LoadToUi();
             }
@@ -665,6 +681,8 @@ namespace MinecraftHelper
             _autoReconnectTimer.Start();
             _isMinecraftFocused = CheckGameFocus();
             InitializeGlassUi();
+            if (!_workspaceWorker)
+                AttachTabTutorialButtons();
         }
 
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
@@ -679,6 +697,15 @@ namespace MinecraftHelper
             {
                 WindowState = WindowState.Normal;
                 Activate();
+            }
+
+            // Samouczek w trybie ćwiczeń zastępuje okno „pierwsze uruchomienie / zmiana wersji”.
+            // Uruchamia go App po zakończeniu startu (BeginStartupTutorial) — nie tutaj, bo Loaded
+            // wykonuje się w trakcie komendy workspace-show, która musi szybko odpowiedzieć.
+            if (_tutorialPending)
+            {
+                _showStartupNotice = false;
+                ArmStartupTutorialFallback();
             }
 
             if (_showStartupNotice)
@@ -696,12 +723,29 @@ namespace MinecraftHelper
             AppUpdateInfo? update = await UpdateCheckService.CheckForUpdateAsync(_currentAppVersion);
             if (update == null || !IsVisible || _isExitRequested)
                 return;
+            // „Pomiń tę wersję”: przy starcie nie przypominamy, dopóki nie wyjdzie kolejna.
+            if (string.Equals(update.LatestVersion, _settings.SkippedUpdateVersion, StringComparison.OrdinalIgnoreCase))
+                return;
 
             var dialog = new UpdateAvailableWindow(update)
             {
                 Owner = this
             };
             dialog.ShowDialog();
+
+            if (dialog.SkipRequested)
+            {
+                try
+                {
+                    _settings.SkippedUpdateVersion = update.LatestVersion;
+                    _settingsService.Save(_settings);
+                    UpdateStatusBar($"Pominięto wersję {update.LatestVersion} — o kolejnej program znów przypomni.", "Orange");
+                }
+                catch (Exception ex)
+                {
+                    UpdateStatusBar("Nie udało się zapisać pominiętej wersji: " + ex.Message, "Red");
+                }
+            }
 
             if (IsVisible && !_isExitRequested)
                 Activate();
@@ -711,6 +755,13 @@ namespace MinecraftHelper
         {
             if (!IsVisible || _isExitRequested)
                 return;
+
+            // Po aktualizacji: panel „Nowe w …” w rogu okna zamiast okna blokującego program.
+            if (!_isFirstRun)
+            {
+                ShowWhatsNewAfterUpdate();
+                return;
+            }
 
             var dialog = new FirstRunGuideWindow(
                 _isFirstRun,
@@ -956,12 +1007,15 @@ namespace MinecraftHelper
         {
             _settings ??= new AppSettings();
             _settings.LastAcknowledgedVersion ??= string.Empty;
+            _settings.SkippedUpdateVersion ??= string.Empty;
 
             _settings.Kopacz533Commands ??= new List<MinerCommand>();
             _settings.Kopacz633Commands ??= new List<MinerCommand>();
             _settings.InventoryCleanupSlots ??= Enumerable.Range(0, 27).ToList();
             _settings.InventoryCleanupSlots = _settings.InventoryCleanupSlots
-                .Where(slot => slot >= 0 && slot < 27)
+                .Where(slot => slot >= 0 && slot < InventoryMarkerDetector.AllSlotCount
+                    && slot != InventoryMarkerDetector.ToolHotbarSlot
+                    && !(slot == InventoryMarkerDetector.FoodHotbarSlot && _settings.InventoryCleanupEatAfterCleanup))
                 .Distinct()
                 .OrderBy(slot => slot)
                 .ToList();
@@ -971,6 +1025,13 @@ namespace MinecraftHelper
             _settings.InventoryCleanupItemTypes ??= InventoryCleanupItemTypes.Select(item => item.Id).ToList();
             _settings.InventoryCleanupItemTypes = _settings.InventoryCleanupItemTypes
                 .Where(itemId => supportedCleanupItemTypes.Contains(itemId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            _settings.EnderchestCommand ??= string.Empty;
+            _settings.EnderchestMenuTitle ??= string.Empty;
+            _settings.EnderchestOpenDelayMs = Math.Clamp(_settings.EnderchestOpenDelayMs, 500, 30000);
+            _settings.EnderchestItemTypes = (_settings.EnderchestItemTypes ?? new List<string>())
+                .Where(itemId => EnderchestCatalog.Any(item => string.Equals(item.Id, itemId, StringComparison.OrdinalIgnoreCase)))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (_settings.InventoryCleanupIntervalSeconds <= 0)
@@ -1393,6 +1454,7 @@ namespace MinecraftHelper
             else
                 CbKopacz633Direction.SelectedIndex = 0; // także usunięty tryb prostokąta — kierunek trzeba wybrać od nowa
             UpdateKopaczUpwardInfoVisibility();
+            SelectDefaultKopaczModeTile();
 
             ChkInventoryCleanupEnabled.IsChecked = _settings.InventoryCleanupEnabled;
             TxtInventoryCleanupIntervalSeconds.Text = _settings.InventoryCleanupIntervalSeconds.ToString(CultureInfo.InvariantCulture);
@@ -1405,6 +1467,7 @@ namespace MinecraftHelper
             TxtCobbleXCommand.Text = _settings.CobbleXCommand;
             TxtCobbleXRequiredStacks.Text = _settings.CobbleXRequiredFullStacks.ToString(CultureInfo.InvariantCulture);
             LoadGoldDepositSettings();
+            LoadEnderchestSettings();
             LoadInventoryCleanupSlotsToUi();
             LoadInventoryCleanupItemTypesToUi();
             UpdateInventoryCleanupStatus("Gotowe. Włącz texturepack Minecraft Helper w grze.", "Default");
@@ -1468,23 +1531,73 @@ namespace MinecraftHelper
         private void InitializeInventoryCleanupSlotGrid()
         {
             PanelInventoryCleanupSlots.Children.Clear();
+            PanelInventoryCleanupHotbarSlots.Children.Clear();
             _inventoryCleanupSlotCheckBoxes.Clear();
 
-            for (int slot = 0; slot < 27; slot++)
+            for (int slot = 0; slot < InventoryMarkerDetector.AllSlotCount; slot++)
             {
+                bool hotbar = slot >= InventoryMarkerDetector.MainSlotCount;
+                int hotbarNumber = slot - InventoryMarkerDetector.MainSlotCount + 1;
                 var checkBox = new CheckBox
                 {
-                    Content = (slot + 1).ToString(CultureInfo.InvariantCulture),
+                    Content = hotbar ? $"H{hotbarNumber}" : (slot + 1).ToString(CultureInfo.InvariantCulture),
                     Tag = slot,
                     Style = (Style)FindResource("SlotGridCheckBoxStyle"),
-                    ToolTip = $"Slot {slot + 1} — rząd {(slot / 9) + 1}, kolumna {(slot % 9) + 1}"
+                    ToolTip = hotbar
+                        ? $"Pasek na dole, slot {hotbarNumber}"
+                        : $"Slot {slot + 1} — rząd {(slot / 9) + 1}, kolumna {(slot % 9) + 1}"
                 };
+                if (slot == InventoryMarkerDetector.ToolHotbarSlot)
+                {
+                    checkBox.IsEnabled = false;
+                    checkBox.ToolTip = "H1 to kilof — nigdy nie jest wyrzucany.";
+                    ToolTipService.SetShowOnDisabled(checkBox, true);
+                }
                 checkBox.Checked += InventoryCleanupSlot_Changed;
                 checkBox.Unchecked += InventoryCleanupSlot_Changed;
                 _inventoryCleanupSlotCheckBoxes.Add(checkBox);
-                PanelInventoryCleanupSlots.Children.Add(checkBox);
+                (hotbar ? PanelInventoryCleanupHotbarSlots : PanelInventoryCleanupSlots).Children.Add(checkBox);
                 UpdateInventoryCleanupOptionVisual(checkBox);
             }
+        }
+
+        // H2 to slot jedzenia: gdy Auto EQ je po czyszczeniu, nie może go wyrzucić.
+        private void UpdateInventoryCleanupFoodSlotLock()
+        {
+            if (_inventoryCleanupSlotCheckBoxes.Count <= InventoryMarkerDetector.FoodHotbarSlot)
+                return;
+
+            CheckBox foodSlot = _inventoryCleanupSlotCheckBoxes[InventoryMarkerDetector.FoodHotbarSlot];
+            bool locked = ChkInventoryCleanupEatAfterCleanup.IsChecked == true;
+            if (locked)
+                foodSlot.IsChecked = false;
+            foodSlot.IsEnabled = !locked;
+            foodSlot.ToolTip = locked ? "H2 to slot jedzenia — zablokowany, gdy włączone jest Jedzenie." : "Pasek na dole, slot 2";
+            ToolTipService.SetShowOnDisabled(foodSlot, true);
+            UpdateInventoryCleanupOptionVisual(foodSlot);
+        }
+
+        private CheckBox CreateItemTypeChip(string itemId, string label)
+        {
+            var content = new StackPanel { Orientation = Orientation.Horizontal };
+            content.Children.Add(new Border
+            {
+                Width = 22,
+                Height = 22,
+                CornerRadius = new CornerRadius(6),
+                Background = GlassPalette.NeutralSoft,
+                Padding = new Thickness(3),
+                Margin = new Thickness(0, 0, 7, 0),
+                Child = ItemPixelIcons.Create(itemId, 16)
+            });
+            content.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
+            return new CheckBox
+            {
+                Content = content,
+                Tag = itemId,
+                Style = (Style)FindResource("GlassChip"),
+                ToolTip = label
+            };
         }
 
         private void InitializeInventoryCleanupItemTypeGrid()
@@ -1494,26 +1607,7 @@ namespace MinecraftHelper
 
             foreach ((string itemId, string label) in InventoryCleanupItemTypes)
             {
-                var content = new StackPanel { Orientation = Orientation.Horizontal };
-                content.Children.Add(new Border
-                {
-                    Width = 22,
-                    Height = 22,
-                    CornerRadius = new CornerRadius(6),
-                    Background = GlassPalette.NeutralSoft,
-                    Padding = new Thickness(3),
-                    Margin = new Thickness(0, 0, 7, 0),
-                    Child = ItemPixelIcons.Create(itemId, 16)
-                });
-                content.Children.Add(new TextBlock { Text = label, VerticalAlignment = VerticalAlignment.Center });
-
-                var checkBox = new CheckBox
-                {
-                    Content = content,
-                    Tag = itemId,
-                    Style = (Style)FindResource("GlassChip"),
-                    ToolTip = label
-                };
+                CheckBox checkBox = CreateItemTypeChip(itemId, label);
                 checkBox.Checked += InventoryCleanupItemType_Changed;
                 checkBox.Unchecked += InventoryCleanupItemType_Changed;
                 _inventoryCleanupItemTypeCheckBoxes.Add(checkBox);
@@ -1624,7 +1718,8 @@ namespace MinecraftHelper
             var slots = new HashSet<int>();
             for (int slot = 0; slot < _inventoryCleanupSlotCheckBoxes.Count; slot++)
             {
-                if (_inventoryCleanupSlotCheckBoxes[slot].IsChecked == true)
+                // IsEnabled: zablokowane H1 i H2 nie trafią do skanu, nawet przy starym zapisie.
+                if (_inventoryCleanupSlotCheckBoxes[slot].IsChecked == true && _inventoryCleanupSlotCheckBoxes[slot].IsEnabled)
                     slots.Add(slot);
             }
             return slots;
@@ -1702,12 +1797,12 @@ namespace MinecraftHelper
 
             TxtInventoryCleanupStatus.Text = message;
             TxtInventoryCleanupStatus.Foreground = colorName == "Red"
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107))
+                ? GlassPalette.LegacyBrush(255, 107, 107)
                 : colorName == "Green"
-                    ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
+                    ? GlassPalette.LegacyBrush(56, 214, 180)
                     : colorName == "Orange"
-                        ? new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36))
-                        : new SolidColorBrush(GlassPalette.MapLegacyColor(216, 226, 240));
+                        ? GlassPalette.LegacyBrush(251, 191, 36)
+                        : GlassPalette.LegacyBrush(216, 226, 240);
         }
 
         private void InventoryCleanupSlot_Changed(object sender, RoutedEventArgs e)
@@ -1744,6 +1839,8 @@ namespace MinecraftHelper
         private void RefreshInventoryCleanupItemTypeMode()
         {
             bool customSelectionEnabled = ChkInventoryCleanupAllItemTypes?.IsChecked != true;
+            if (PanelInventoryCleanupItemTypesSection != null)
+                SetExpandableSectionState(PanelInventoryCleanupItemTypesSection, customSelectionEnabled);
             if (PanelInventoryCleanupItemTypes != null)
             {
                 PanelInventoryCleanupItemTypes.IsEnabled = customSelectionEnabled;
@@ -1762,16 +1859,17 @@ namespace MinecraftHelper
                 return;
 
             bool slotSelected = checkBox.IsChecked == true;
-            checkBox.Background = slotSelected ? GlassPalette.AccentSoft : new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
+            checkBox.Background = slotSelected ? GlassPalette.AccentSoft : GlassPalette.Surface;
             checkBox.BorderBrush = slotSelected ? GlassPalette.AccentSolid : GlassPalette.Line;
             checkBox.Foreground = slotSelected ? GlassPalette.AccentInk : GlassPalette.Muted;
             checkBox.BorderThickness = new Thickness(slotSelected ? 1.5 : 1);
-            checkBox.Opacity = 1.0;
+            checkBox.Opacity = checkBox.IsEnabled ? 1.0 : 0.5; // zablokowane H1 i H2 przygaszone
         }
 
         private void BtnInventoryCleanupSelectAll_Click(object sender, RoutedEventArgs e)
         {
-            for (int slot = 0; slot < _inventoryCleanupSlotCheckBoxes.Count; slot++)
+            // Tylko główne EQ — sloty paska na dole wybiera się pojedynczo, świadomie.
+            for (int slot = 0; slot < InventoryMarkerDetector.MainSlotCount; slot++)
                 _inventoryCleanupSlotCheckBoxes[slot].IsChecked = true;
             MarkDirty();
         }
@@ -1809,7 +1907,7 @@ namespace MinecraftHelper
                 UpdateInventoryCleanupStatus("Test: zaznacz przynajmniej jeden slot albo włącz CobbleX.", "Orange");
                 return;
             }
-            if (!cobbleXEnabled && !goldEnabled && !discardEverythingExceptCobblestone && enabledItemTypes.Count == 0)
+            if (!cobbleXEnabled && !goldEnabled && !IsEnderchestReady() && !discardEverythingExceptCobblestone && enabledItemTypes.Count == 0)
             {
                 UpdateInventoryCleanupStatus("Test: zaznacz przynajmniej jeden typ przedmiotu albo włącz CobbleX.", "Orange");
                 return;
@@ -2008,7 +2106,7 @@ namespace MinecraftHelper
                 {
                     Text = profile.ServerAddress,
                     FontSize = 11.5,
-                    Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193)),
+                    Foreground = GlassPalette.LegacyBrush(146, 166, 193),
                     TextTrimming = TextTrimming.CharacterEllipsis,
                     Margin = new Thickness(0, 3, 0, 0)
                 });
@@ -2016,7 +2114,7 @@ namespace MinecraftHelper
                 {
                     Text = profile.HomeHasGui ? $"GUI {profile.HomeGuiRows}×{profile.HomeGuiColumns} • slot {profile.HomeGuiSlot}" : "Komenda bez GUI",
                     FontSize = 11.5,
-                    Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(127, 200, 255)),
+                    Foreground = GlassPalette.LegacyBrush(127, 200, 255),
                     Margin = new Thickness(0, 2, 0, 0)
                 });
 
@@ -2241,12 +2339,12 @@ namespace MinecraftHelper
             {
                 TxtAutoReconnectStatus.Text = message;
                 TxtAutoReconnectStatus.Foreground = colorName == "Red"
-                    ? new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107))
+                    ? GlassPalette.LegacyBrush(255, 107, 107)
                     : colorName == "Green"
-                        ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
+                        ? GlassPalette.LegacyBrush(56, 214, 180)
                         : colorName == "Orange"
-                            ? new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36))
-                            : new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                            ? GlassPalette.LegacyBrush(251, 191, 36)
+                            : GlassPalette.LegacyBrush(146, 166, 193);
             }
 
             if (_emergencyReconnectActive)
@@ -2415,7 +2513,6 @@ namespace MinecraftHelper
             string resumedMiner = string.Empty;
             if (resumeKopacz533 && ChkKopacz533Enabled?.IsChecked == true)
             {
-                SendKeyTap(VK_1);
                 _kopacz533RuntimeEnabled = true;
                 StopOtherExclusivePointerMacros(keepKopacz533: true);
                 StartKopacz533Runtime(now);
@@ -2425,7 +2522,6 @@ namespace MinecraftHelper
                 && ChkKopacz633Enabled?.IsChecked == true
                 && IsKopacz633DirectionSelected())
             {
-                SendKeyTap(VK_1);
                 _kopacz633RuntimeEnabled = true;
                 StopOtherExclusivePointerMacros(keepKopacz633: true);
                 StartKopacz633Runtime(now);
@@ -2568,13 +2664,12 @@ namespace MinecraftHelper
             _nextAutoReconnectActionAtUtc = DateTime.UtcNow;
             _nextAutoReconnectHealthCheckAtUtc = DateTime.UtcNow.AddSeconds(Math.Clamp(_settings.AutoReconnectWatchdogSeconds, 15, 3600));
 
-            bool targetFocused = IsGameInputAvailableFor(_targetGameWindowHandle);
-            if (resumeMining && targetFocused)
+            // Powrót na serwer: pętla kopania najpierw wybierze slot kilofa, a dopiero potem trzyma LPM.
+            if (resumeMining
+                && ((_autoReconnectResumeKopacz533 && _kopacz533RuntimeEnabled)
+                    || (_autoReconnectResumeKopacz633 && _kopacz633RuntimeEnabled)))
             {
-                if (_autoReconnectResumeKopacz533 && _kopacz533RuntimeEnabled)
-                    SetKopacz533MiningHold(true);
-                if (_autoReconnectResumeKopacz633 && _kopacz633RuntimeEnabled)
-                    SetKopacz633AttackHold(true);
+                RequestMiningToolSlot(DateTime.UtcNow);
             }
 
             _autoReconnectResumeKopacz533 = false;
@@ -3730,8 +3825,8 @@ namespace MinecraftHelper
                         ? "Wybór zapisany, ale kontrola jest nieaktywna w trybie tylko Disconnect. Możesz odznaczyć ją niezależnie."
                         : "Kontrola jest włączona i będzie sprawdzać połączenie podczas cykli Auto EQ aktywnego Kopacza.";
             TxtAutoReconnectAvailability.Foreground = active
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
-                : new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                ? GlassPalette.LegacyBrush(56, 214, 180)
+                : GlassPalette.LegacyBrush(146, 166, 193);
         }
 
         private void AutoReconnectSetting_Changed(object sender, SelectionChangedEventArgs e)
@@ -4169,12 +4264,23 @@ namespace MinecraftHelper
             }
 
             bool kop533Visible = kop533ModeSelected && (_kopacz533RuntimeEnabled || _kopacz533CommandStage != Kopacz533CommandStage.None || _kopacz533ResumeMiningPending);
-            if (kop533Visible)
-                entries.Add(BuildKopacz533OverlayEntry(now));
-
             bool kop633Visible = kop633ModeSelected && (_kopacz633RuntimeEnabled || _kopacz633CommandStage != Kopacz633CommandStage.None || _kopacz633ResumeMiningPending);
+            bool bothMinersVisible = kop533Visible && kop633Visible;
+
+            // Każdy Kopacz ma pod sobą kafelek swoich komend w pętli (gdy jakaś jest ustawiona).
+            if (kop533Visible)
+            {
+                entries.Add(BuildKopacz533OverlayEntry(now));
+                if (BuildKopaczCommandsOverlayEntry(kop533: true, now, bothMinersVisible) is OverlayHudEntry commands533)
+                    entries.Add(commands533);
+            }
+
             if (kop633Visible)
+            {
                 entries.Add(BuildKopacz633OverlayEntry(now));
+                if (BuildKopaczCommandsOverlayEntry(kop533: false, now, bothMinersVisible) is OverlayHudEntry commands633)
+                    entries.Add(commands633);
+            }
 
             if (inventoryCleanupSelected
                 && (kop533Visible || kop633Visible || _inventoryCleanupStage != InventoryCleanupStage.None))
@@ -4280,15 +4386,97 @@ namespace MinecraftHelper
                 tone = OverlayHudTone.Active;
             }
 
+            // Kafelek: plakietka i duża wartość mówią, w jakim stanie jest ochrona; szczegóły pod spodem.
+            bool alarm = _emergencyDamageSoundHandlingAlarm;
+            bool manualTest = !alarm && _emergencyDamageSoundManualTestActive;
+            bool reconnecting = !alarm && !manualTest && _autoReconnectStage != AutoReconnectStage.None;
+            bool armed = !alarm && !manualTest && !reconnecting && _damageSoundDetector.IsRunning;
+            bool listenerTestMode = _settings.EmergencyDamageSoundTestMode;
+
+            string badge;
+            OverlayHudColor badgeColor;
+            string headline;
+            if (alarm)
+            {
+                badge = "ALARM";
+                badgeColor = OverlayHudColor.Bad;
+                headline = "Wyjście z serwera";
+                tone = OverlayHudTone.Alarm;
+            }
+            else if (manualTest)
+            {
+                badge = "TEST";
+                badgeColor = OverlayHudColor.Warn;
+                headline = "Test nasłuchu";
+            }
+            else if (reconnecting)
+            {
+                badge = "RECONNECT";
+                badgeColor = OverlayHudColor.Warn;
+                headline = ToHudSentence(state);
+            }
+            else if (armed)
+            {
+                badge = listenerTestMode ? "TEST" : "ON";
+                badgeColor = listenerTestMode ? OverlayHudColor.Warn : OverlayHudColor.Ok;
+                headline = listenerTestMode ? "Nasłuch testowy" : "Nasłuch aktywny";
+            }
+            else
+            {
+                badge = "GOTOWA";
+                badgeColor = OverlayHudColor.Info;
+                headline = owner == "oczekiwanie na Kopacza" ? "Czeka na Kopacza" : "Uruchamianie nasłuchu";
+            }
+
+            OverlayHudProgress? progress = null;
+            if (manualTest && _emergencyDamageSoundManualTestUntilUtc != DateTime.MinValue)
+            {
+                progress = new OverlayHudProgress(
+                    _emergencyDamageSoundManualTestUntilUtc - EmergencyDamageSoundManualTestDuration,
+                    _emergencyDamageSoundManualTestUntilUtc);
+            }
+
             string body =
-                $"Teraz: {state}\n" +
+                $"{detail}\n" +
                 $"Następnie: {nextAction}\n" +
-                $"Tryb: {owner} • Profil: {profileName}\n" +
-                detail;
+                $"Profil: {profileName} · {owner}";
             string title = _emergencyReconnectActive || ChkEmergencyDamageSoundEnabled?.IsChecked == true
                 ? "AWARYJNA OCHRONA KOPACZA"
                 : "AUTO RECONNECT";
-            return new OverlayHudEntry(title, body, tone, Emphasize: _emergencyReconnectActive);
+            return new OverlayHudEntry(title, body, tone, Emphasize: _emergencyReconnectActive)
+            {
+                Icon = title == "AUTO RECONNECT" ? OverlayHudIcon.Reconnect : OverlayHudIcon.Shield,
+                Badge = badge,
+                BadgeColor = badgeColor,
+                Headline = headline,
+                HeadlineColor = badgeColor,
+                Progress = progress,
+                ProgressColor = OverlayHudColor.Warn
+            };
+        }
+
+        private static readonly TimeSpan EmergencyDamageSoundManualTestDuration = TimeSpan.FromSeconds(15);
+
+        // „OTWIERANIE DIRECT CONNECT” → „Otwieranie Direct Connect”: etapy z wielkich liter jako zdanie.
+        private static string ToHudSentence(string upperText)
+        {
+            if (string.IsNullOrWhiteSpace(upperText))
+                return string.Empty;
+
+            CultureInfo polish = CultureInfo.GetCultureInfo("pl-PL");
+            string[] words = upperText.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < words.Length; i++)
+            {
+                string word = words[i];
+                if (word == "EQ")
+                    continue;
+                string lower = word.ToLower(polish);
+                bool properName = lower is "direct" or "connect" or "reconnect";
+                words[i] = i == 0 || properName
+                    ? char.ToUpper(lower[0], polish) + lower.Substring(1)
+                    : lower;
+            }
+            return string.Join(' ', words);
         }
 
         private static string GetAutoReconnectOverlayStageLabel(AutoReconnectStage stage)
@@ -4343,67 +4531,200 @@ namespace MinecraftHelper
             };
         }
 
+        // Kafelek Kopacza: duży czas pracy, plakietka ON/OFF, etap i historia w szczegółach.
+        // Komendy w pętli mają osobny kafelek pod spodem (BuildKopaczCommandsOverlayEntry).
         private OverlayHudEntry BuildKopacz533OverlayEntry(DateTime now)
         {
             string bindLabel = GetConfiguredBindLabel(TxtKopacz533Key.Text);
-            string runtimeState = GetRuntimeStateLabel(_kopacz533RuntimeEnabled);
             string stageLabel = GetKopacz533StageLabel();
-            int elapsedSeconds = GetKopacz533ElapsedSeconds(now);
-            string commandLine = BuildKopacz533CommandOverlayLine(now);
-            string startedLine = _kopacz533RuntimeStartedAtUtc == DateTime.MinValue
-                ? "Start: -"
-                : $"Start: {_kopacz533RuntimeStartedAtUtc.ToLocalTime():HH:mm:ss} | Czas: {FormatRuntimeDuration(elapsedSeconds)}";
+            string elapsed = _kopacz533RuntimeStartedAtUtc == DateTime.MinValue
+                ? FormatRuntimeDuration(0)
+                : FormatRuntimeDuration(GetKopacz533ElapsedSeconds(now));
 
             string body =
-                $"Bind: {bindLabel}\n" +
-                $"Stan: {runtimeState} | Etap: {stageLabel}\n" +
-                $"{startedLine}\n" +
-                $"Historia: EQ {_latestMiningLogSummary.InventorySessions:N0} | CX {_latestMiningLogSummary.CobbleXCreated:N0} | {_latestMiningLogSummary.DiscardedItems:N0} wyrzuconych\n" +
-                commandLine;
+                $"{stageLabel} · bind {bindLabel}\n" +
+                BuildMiningHistoryOverlayLine();
 
-            return new OverlayHudEntry("KOPACZ 5/3/3", body, OverlayHudTone.Active);
+            return new OverlayHudEntry("KOPACZ 5/3/3", body, OverlayHudTone.Active)
+            {
+                Icon = OverlayHudIcon.Pickaxe,
+                Badge = GetRuntimeStateLabel(_kopacz533RuntimeEnabled),
+                Headline = elapsed,
+                HeadlineColor = OverlayHudColor.Ink
+            };
         }
 
         private OverlayHudEntry BuildKopacz633OverlayEntry(DateTime now)
         {
             string bindLabel = GetConfiguredBindLabel(TxtKopacz633Key.Text);
-            string runtimeState = GetRuntimeStateLabel(_kopacz633RuntimeEnabled);
             string stageLabel = GetKopacz633StageLabel();
             string directionLabel = GetKopacz633DirectionLabel();
-            string movementLabel = GetKopacz633MovementOverlayLabel(now);
-            string commandLine = BuildKopacz633CommandOverlayLine(now);
-            int elapsedSeconds = Math.Max(0, (int)Math.Floor((now - _kopacz633RuntimeStartedAtUtc).TotalSeconds));
-            string startedLine = _kopacz633RuntimeStartedAtUtc == DateTime.MinValue
-                ? "Start: -"
-                : $"Start: {_kopacz633RuntimeStartedAtUtc.ToLocalTime():HH:mm:ss} | Czas: {FormatRuntimeDuration(elapsedSeconds)}";
+            string elapsed = _kopacz633RuntimeStartedAtUtc == DateTime.MinValue
+                ? FormatRuntimeDuration(0)
+                : FormatRuntimeDuration(Math.Max(0, (int)Math.Floor((now - _kopacz633RuntimeStartedAtUtc).TotalSeconds)));
 
             string sizeLabel;
             if (CbKopacz633Direction.SelectedIndex == 1)
-            {
-                int width = GetConfiguredKopacz633ForwardWidth();
-                sizeLabel = $"Szer: {width}";
-            }
+                sizeLabel = $" · szer. {GetConfiguredKopacz633ForwardWidth()}";
             else if (IsKopacz633RectangleMode())
+                sizeLabel = $" · {GetConfiguredKopacz633UpwardWidth()}×{GetConfiguredKopacz633UpwardLength()}";
+            else
+                sizeLabel = string.Empty;
+
+            // Kierunek ruchu bez milisekund — HUD odświeża się co 200 ms i licznik ms tylko migał.
+            string movement = _kopacz633StrafeDirection switch
             {
-                int width = GetConfiguredKopacz633UpwardWidth();
-                int length = GetConfiguredKopacz633UpwardLength();
-                sizeLabel = $"Szer: {width} | Dł: {length}";
+                Kopacz633StrafeDirection.Forward => " · ruch W ↑",
+                Kopacz633StrafeDirection.Right => " · ruch D →",
+                Kopacz633StrafeDirection.Backward => " · ruch S ↓",
+                Kopacz633StrafeDirection.Left => " · ruch A ←",
+                _ => string.Empty
+            };
+
+            string body =
+                $"{stageLabel} · bind {bindLabel}\n" +
+                $"{directionLabel}{sizeLabel}{movement}\n" +
+                BuildMiningHistoryOverlayLine();
+
+            return new OverlayHudEntry("KOPACZ 6/3/3", body, OverlayHudTone.Active)
+            {
+                Icon = OverlayHudIcon.Pickaxe,
+                Badge = GetRuntimeStateLabel(_kopacz633RuntimeEnabled),
+                Headline = elapsed,
+                HeadlineColor = OverlayHudColor.Ink
+            };
+        }
+
+        private string BuildMiningHistoryOverlayLine() =>
+            $"EQ {_latestMiningLogSummary.InventorySessions:N0} · CobbleX {_latestMiningLogSummary.CobbleXCreated:N0} · {_latestMiningLogSummary.DiscardedItems:N0} wyrzuconych";
+
+        // Kafelek komend w pętli: następna komenda z odliczaniem, kolejka i pasek do wysłania.
+        // Pasek dostaje czas startu i końca, więc płynie sam; w pauzie Auto EQ stoi w miejscu.
+        private OverlayHudEntry? BuildKopaczCommandsOverlayEntry(bool kop533, DateTime now, bool bothMinersVisible)
+        {
+            List<MinerCommand>? commands = kop533 ? _settings.Kopacz533Commands : _settings.Kopacz633Commands;
+            if (commands == null || commands.Count == 0)
+                return null;
+
+            var usable = new List<int>();
+            for (int i = 0; i < commands.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(commands[i].Command))
+                    usable.Add(i);
+            }
+            if (usable.Count == 0)
+                return null;
+
+            string pendingCommand = kop533 ? _kopacz533PendingCommand : _kopacz633PendingCommand;
+            bool sending = (kop533
+                    ? _kopacz533CommandStage != Kopacz533CommandStage.None
+                    : _kopacz633CommandStage != Kopacz633CommandStage.None)
+                && !string.IsNullOrWhiteSpace(pendingCommand);
+
+            int commandIndex;
+            string command;
+            int delaySeconds;
+            if (sending)
+            {
+                commandIndex = kop533 ? _kopacz533PendingCommandIndex : _kopacz633PendingCommandIndex;
+                command = pendingCommand;
+                delaySeconds = commandIndex >= 0 && commandIndex < commands.Count ? Math.Max(1, commands[commandIndex].Seconds) : 1;
             }
             else
             {
-                sizeLabel = "Szer: - | Dł: -";
+                bool found = kop533
+                    ? TryPeekNextKopacz533Command(out commandIndex, out command, out delaySeconds)
+                    : TryPeekNextKopacz633Command(out commandIndex, out command, out delaySeconds);
+                if (!found)
+                    return null;
             }
 
-            string body =
-                $"Bind: {bindLabel}\n" +
-                $"Stan: {runtimeState} | Etap: {stageLabel}\n" +
-                $"Tryb: {directionLabel} | {sizeLabel}\n" +
-                $"{startedLine}\n" +
-                $"{movementLabel}\n" +
-                $"Historia: EQ {_latestMiningLogSummary.InventorySessions:N0} | CX {_latestMiningLogSummary.CobbleXCreated:N0} | {_latestMiningLogSummary.DiscardedItems:N0} wyrzuconych\n" +
-                commandLine;
+            int position = usable.IndexOf(commandIndex);
+            var upcoming = new List<string>();
+            for (int step = 1; step < usable.Count && upcoming.Count < 2; step++)
+            {
+                int next = usable[(Math.Max(0, position) + step) % usable.Count];
+                upcoming.Add($"{GetStatusCommandPreview(commands[next].Command)} ({FormatCommandInterval(commands[next].Seconds)})");
+            }
+            string queueLine = upcoming.Count == 0
+                ? $"Powtarzana co {FormatCommandInterval(delaySeconds)}"
+                : "Potem " + string.Join(" · ", upcoming);
 
-            return new OverlayHudEntry("KOPACZ 6/3/3", body, OverlayHudTone.Active);
+            string title = bothMinersVisible
+                ? (kop533 ? "KOMENDY 5/3/3" : "KOMENDY 6/3/3")
+                : "KOMENDY W PĘTLI";
+            string preview = GetStatusCommandPreview(command);
+
+            if (sending)
+            {
+                return new OverlayHudEntry(title, queueLine, OverlayHudTone.Active)
+                {
+                    Icon = OverlayHudIcon.Commands,
+                    Badge = "TERAZ",
+                    BadgeColor = OverlayHudColor.Ok,
+                    Headline = $"{preview} — wysyłanie",
+                    HeadlineColor = OverlayHudColor.Ok,
+                    Progress = OverlayHudProgress.Fixed(1),
+                    ProgressColor = OverlayHudColor.Ok
+                };
+            }
+
+            InventoryCleanupOwner owner = kop533 ? InventoryCleanupOwner.Kopacz533 : InventoryCleanupOwner.Kopacz633;
+            DateTime deadline = kop533 ? _nextKopacz533CommandAtUtc : _nextKopacz633CommandAtUtc;
+            bool paused = IsKopaczCommandCountdownPaused(owner);
+            OverlayHudProgress progress;
+            if (deadline == DateTime.MaxValue)
+                progress = OverlayHudProgress.Fixed(0);
+            else if (paused)
+                progress = OverlayHudProgress.Fixed(1 - (deadline - _inventoryCleanupCommandPauseStartedAtUtc).TotalSeconds / delaySeconds);
+            else
+                progress = new OverlayHudProgress(deadline.AddSeconds(-delaySeconds), deadline);
+
+            if (paused)
+            {
+                return new OverlayHudEntry(title, "Czeka na koniec Auto EQ, czas zostaje zachowany", OverlayHudTone.Warning)
+                {
+                    Icon = OverlayHudIcon.Commands,
+                    Badge = "PAUZA",
+                    BadgeColor = OverlayHudColor.Warn,
+                    Headline = $"{preview} — pauza",
+                    HeadlineColor = OverlayHudColor.Warn,
+                    Progress = progress,
+                    ProgressColor = OverlayHudColor.Warn
+                };
+            }
+
+            int remainingSeconds = GetKopaczCommandRemainingSeconds(owner, now);
+            return new OverlayHudEntry(title, queueLine, OverlayHudTone.Active)
+            {
+                Icon = OverlayHudIcon.Commands,
+                Badge = $"#{Math.Max(1, position + 1)} / {usable.Count}",
+                BadgeColor = OverlayHudColor.Info,
+                Headline = $"{preview} za {FormatCountdown(remainingSeconds)}",
+                HeadlineColor = OverlayHudColor.Info,
+                Progress = progress,
+                ProgressColor = OverlayHudColor.Info
+            };
+        }
+
+        // 12 → „0:12”, 754 → „12:34”, 3725 → „1:02:05”.
+        private static string FormatCountdown(int totalSeconds)
+        {
+            TimeSpan value = TimeSpan.FromSeconds(Math.Max(0, totalSeconds));
+            return value.TotalHours >= 1
+                ? $"{(int)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}"
+                : $"{value.Minutes}:{value.Seconds:00}";
+        }
+
+        // 20 → „20 s”, 180 → „3 min”, 90 → „1 min 30 s”.
+        private static string FormatCommandInterval(int seconds)
+        {
+            seconds = Math.Max(1, seconds);
+            if (seconds < 60)
+                return $"{seconds} s";
+            return seconds % 60 == 0
+                ? $"{seconds / 60} min"
+                : $"{seconds / 60} min {seconds % 60} s";
         }
 
         private OverlayHudEntry BuildInventoryCleanupOverlayEntry(DateTime now)
@@ -4412,8 +4733,18 @@ namespace MinecraftHelper
             {
                 string progress = _goldDepositManualTest.Started
                     ? _goldDepositFlow?.Message ?? "Test wpłaty"
-                    : $"Start za {_goldDepositManualTest.RemainingSeconds(now)} s — przejdź do Minecrafta";
-                return new OverlayHudEntry("TEST WPŁATY ZŁOTA", progress + "\nSTOP: przycisk w GUI lub bind kopacza\nKopanie pozostaje wyłączone.", OverlayHudTone.Active);
+                    : $"Start za {_goldDepositManualTest.RemainingSeconds(now)} s";
+                string hint = _goldDepositManualTest.Started
+                    ? "STOP: przycisk w GUI lub bind kopacza"
+                    : "Przejdź do Minecrafta · STOP: przycisk w GUI lub bind kopacza";
+                return new OverlayHudEntry("TEST WPŁATY ZŁOTA", hint + "\nKopanie pozostaje wyłączone.", OverlayHudTone.Warning)
+                {
+                    Icon = OverlayHudIcon.Gold,
+                    Badge = "TEST",
+                    BadgeColor = OverlayHudColor.Warn,
+                    Headline = progress,
+                    HeadlineColor = OverlayHudColor.Ink
+                };
             }
             int intervalSeconds = GetConfiguredInventoryCleanupIntervalSeconds();
             int selectedSlots = GetSelectedInventoryCleanupSlots().Count;
@@ -4478,6 +4809,11 @@ namespace MinecraftHelper
                     progressLine = _goldDepositFlow?.Message ?? "Przygotowanie komendy i menu wpłaty";
                     break;
 
+                case InventoryCleanupStage.MoveToEnderchest:
+                    state = "Enderchest";
+                    progressLine = _enderchestFlow?.Message ?? "Otwieranie enderchesta";
+                    break;
+
                 case InventoryCleanupStage.ResumeMining:
                     state = "Wznawianie kopania";
                     progressLine = $"Wyrzucone stosy: {_inventoryCleanupTargets.Count}";
@@ -4497,46 +4833,76 @@ namespace MinecraftHelper
                     break;
             }
 
+            string title = _inventoryCleanupStage == InventoryCleanupStage.DepositGold ? "WPŁATA ZŁOTA"
+                : _inventoryCleanupStage == InventoryCleanupStage.MoveToEnderchest ? "ENDERCHEST"
+                : ChkCobbleXEnabled.IsChecked == true ? "AUTO EQ / COBBLEX" : "AUTO WYRZUCANIE";
+            OverlayHudIcon icon = _inventoryCleanupStage == InventoryCleanupStage.DepositGold
+                ? OverlayHudIcon.Gold
+                : OverlayHudIcon.Inventory;
             string cobbleXLine = ChkCobbleXEnabled.IsChecked == true
-                ? $"CobbleX: ON | Komenda ×{GetConfiguredCobbleXCommandCount()} | Cobble 64: {_inventoryCleanupLastFullCobblestoneStacks}/{GetConfiguredCobbleXRequiredStacks()} | Komenda: {GetConfiguredCobbleXCommand()}"
-                : "CobbleX: OFF";
-            string eatingLine = ChkInventoryCleanupEatAfterCleanup.IsChecked == true
-                ? "Jedzenie: ON | slot 2 | PPM 4 s | powrót na slot 1"
-                : "Jedzenie: OFF";
-            string timingLine;
-            if (_inventoryCleanupStage != InventoryCleanupStage.None && _inventoryCleanupOpenedAtUtc != DateTime.MinValue)
+                ? $"CobbleX ×{GetConfiguredCobbleXCommandCount()} · cobble 64: {_inventoryCleanupLastFullCobblestoneStacks}/{GetConfiguredCobbleXRequiredStacks()}"
+                : "CobbleX wyłączony";
+            string filterLine = $"Co {FormatCommandInterval(intervalSeconds)} · sloty {selectedSlots} · " +
+                (discardEverythingExceptCobblestone
+                    ? "wszystko poza cobblestone"
+                    : $"typy {selectedItemTypes}/{InventoryCleanupItemTypes.Length}");
+
+            if (_inventoryCleanupStage == InventoryCleanupStage.None)
+            {
+                // Czekanie na kolejny skan: odliczanie z paskiem do następnego otwarcia EQ.
+                bool warning = _inventoryCleanupLastResultWarning;
+                bool waitingForMiner = _nextInventoryCleanupAtUtc == DateTime.MaxValue;
+                int remainingSeconds = waitingForMiner
+                    ? 0
+                    : Math.Max(0, (int)Math.Ceiling((_nextInventoryCleanupAtUtc - now).TotalSeconds));
+                return new OverlayHudEntry(
+                    title,
+                    $"{cobbleXLine}\n{filterLine}\nOstatni wynik: {_inventoryCleanupLastResult}",
+                    warning ? OverlayHudTone.Warning : OverlayHudTone.Active)
+                {
+                    Icon = icon,
+                    Badge = warning ? "UWAGA" : "ON",
+                    BadgeColor = warning ? OverlayHudColor.Warn : OverlayHudColor.Ok,
+                    Headline = waitingForMiner ? "Skan po starcie Kopacza" : $"Skan za {FormatCountdown(remainingSeconds)}",
+                    HeadlineColor = waitingForMiner ? OverlayHudColor.Muted : OverlayHudColor.Info,
+                    Progress = waitingForMiner
+                        ? OverlayHudProgress.Fixed(0)
+                        : new OverlayHudProgress(_nextInventoryCleanupAtUtc.AddSeconds(-intervalSeconds), _nextInventoryCleanupAtUtc),
+                    ProgressColor = OverlayHudColor.Info
+                };
+            }
+
+            // Trwa sekwencja: etap jako duża wartość, a pasek pokazuje postęp tam, gdzie da się go policzyć.
+            double stageFraction = _inventoryCleanupStage switch
+            {
+                InventoryCleanupStage.MoveToSlot
+                    or InventoryCleanupStage.PressDropModifier
+                    or InventoryCleanupStage.PressDropKey
+                    or InventoryCleanupStage.ReleaseDropKeys when _inventoryCleanupTargets.Count > 0
+                    => (double)Math.Min(_inventoryCleanupTargetIndex + 1, _inventoryCleanupTargets.Count) / _inventoryCleanupTargets.Count,
+                InventoryCleanupStage.OpenCobbleXChat
+                    or InventoryCleanupStage.TypeCobbleXCommand
+                    or InventoryCleanupStage.SubmitCobbleXCommand when _inventoryCleanupCobbleXCommandTargetCount > 0
+                    => (double)Math.Min(_inventoryCleanupCobbleXCommandSendCount + 1, _inventoryCleanupCobbleXCommandTargetCount) / _inventoryCleanupCobbleXCommandTargetCount,
+                _ => 1
+            };
+            string body = progressLine;
+            if (_inventoryCleanupOpenedAtUtc != DateTime.MinValue)
             {
                 int cycleSeconds = Math.Max(0, (int)Math.Floor((now - _inventoryCleanupOpenedAtUtc).TotalSeconds));
-                timingLine = $"Bieżące EQ: {_inventoryCleanupOpenedAtUtc.ToLocalTime():HH:mm:ss} | Czas: {FormatRuntimeDuration(cycleSeconds)}";
+                body += $"\nCzas: {FormatRuntimeDuration(cycleSeconds)}";
             }
-            else if (_latestMiningLogSummary.LastActivity.HasValue)
-            {
-                int agoSeconds = Math.Max(0, (int)Math.Floor((DateTimeOffset.UtcNow - _latestMiningLogSummary.LastActivity.Value.ToUniversalTime()).TotalSeconds));
-                timingLine = $"Ostatnie EQ: {_latestMiningLogSummary.LastActivity.Value.LocalDateTime:HH:mm:ss} | {FormatRuntimeDuration(agoSeconds)} temu";
-            }
-            else
-            {
-                timingLine = "Ostatnie EQ: brak";
-            }
-            string body =
-                $"Stan: {state}\n" +
-                $"{progressLine}\n" +
-                $"{timingLine}\n" +
-                $"Interwał: {intervalSeconds}s | Sloty: {selectedSlots}/27 | " +
-                (discardEverythingExceptCobblestone
-                    ? "Tryb: wszystko poza cobblestone\n"
-                    : $"Typy: {selectedItemTypes}/{InventoryCleanupItemTypes.Length}\n") +
-                $"{cobbleXLine}\n" +
-                $"{eatingLine}\n" +
-                $"Historia EQ: {_latestMiningLogSummary.InventorySessions:N0} skanów | {_latestMiningLogSummary.DiscardedItems:N0} szt. / {_latestMiningLogSummary.DiscardedStacks:N0} stos.\n" +
-                $"Ostatni wynik: {_inventoryCleanupLastResult}";
 
-            bool warning = _inventoryCleanupStage == InventoryCleanupStage.None && _inventoryCleanupLastResultWarning;
-            return new OverlayHudEntry(
-                _inventoryCleanupStage == InventoryCleanupStage.DepositGold ? "WPŁATA ZŁOTA"
-                    : ChkCobbleXEnabled.IsChecked == true ? "AUTO EQ / COBBLEX" : "AUTO WYRZUCANIE",
-                body,
-                warning ? OverlayHudTone.Warning : OverlayHudTone.Active);
+            return new OverlayHudEntry(title, body, OverlayHudTone.Active)
+            {
+                Icon = icon,
+                Badge = "W TOKU",
+                BadgeColor = OverlayHudColor.Ok,
+                Headline = state,
+                HeadlineColor = OverlayHudColor.Ink,
+                Progress = OverlayHudProgress.Fixed(stageFraction),
+                ProgressColor = OverlayHudColor.Ok
+            };
         }
 
         private OverlayHudEntry BuildTestAutoFishingOverlayEntry(DateTime now)
@@ -4545,9 +4911,6 @@ namespace MinecraftHelper
             string captureBindLabel = GetConfiguredBindLabel(TxtTestAutoFishingCaptureBind.Text);
             string runtimeStateLabel = GetRuntimeStateLabel(_testAutoFishingRuntimeEnabled);
             string detectionStateLabel = TxtTestAutoFishingState?.Text?.Trim() ?? "-";
-            string areaLine = HasTestAutoFishingAreaConfigured()
-                ? $"Obszar: x={_settings.TestAutoFishingCaptureX}, y={_settings.TestAutoFishingCaptureY}, {_settings.TestAutoFishingCaptureWidth}x{_settings.TestAutoFishingCaptureHeight}"
-                : "Obszar: brak";
             string bobberLine = !double.IsNaN(_testAutoFishingLastDetectedBobberX) && !double.IsNaN(_testAutoFishingLastDetectedBobberY)
                 ? $"Spławik: x={_settings.TestAutoFishingCaptureX + (int)Math.Round(_testAutoFishingLastDetectedBobberX)}, y={_settings.TestAutoFishingCaptureY + (int)Math.Round(_testAutoFishingLastDetectedBobberY)} (okno gry) | czerwone px={_testAutoFishingLastDetectedRedPixels}"
                 : "Spławik: brak";
@@ -4559,9 +4922,6 @@ namespace MinecraftHelper
             int fishingElapsedSeconds = _testAutoFishingRuntimeStartedAtUtc == DateTime.MinValue
                 ? 0
                 : Math.Max(0, (int)Math.Floor((now - _testAutoFishingRuntimeStartedAtUtc).TotalSeconds));
-            string fishingTimeLine = _testAutoFishingRuntimeStartedAtUtc == DateTime.MinValue
-                ? "Start: - | Czas: 00:00"
-                : $"Start: {_testAutoFishingRuntimeStartedAtUtc.ToLocalTime():HH:mm:ss} | Czas: {FormatRuntimeDuration(fishingElapsedSeconds)}";
 
             string command = GetConfiguredTestAutoFishingRepairCommand();
             string commandLine;
@@ -4574,8 +4934,39 @@ namespace MinecraftHelper
             else
                 commandLine = $"Komenda: {GetStatusCommandPreview(command)} za {(_nextTestAutoFishingRepairAtUtc == DateTime.MaxValue ? 0 : Math.Max(0, (int)Math.Ceiling((_nextTestAutoFishingRepairAtUtc - now).TotalSeconds)))}s";
 
-            string body = $"Bind: {bindLabel}\nZaznaczanie: {captureBindLabel}\nStan: {runtimeStateLabel}\n{fishingTimeLine}\nDetekcja: {detectionStateLabel}\n{areaLine}\n{bobberLine}\n{catchLine}\n{commandLine}";
-            return new OverlayHudEntry("AUTO ŁOWIENIE", body, OverlayHudTone.Active);
+            // Pasek do komendy naprawy wędki — tylko gdy jest ustawiona; w trakcie naprawy pełny, zielony.
+            OverlayHudProgress? repairProgress = null;
+            OverlayHudColor repairColor = OverlayHudColor.Info;
+            int repairInterval = GetConfiguredTestAutoFishingRepairIntervalSeconds();
+            if (!string.IsNullOrWhiteSpace(command) && repairInterval > 0)
+            {
+                if (_testAutoFishingRepairStage != TestAutoFishingRepairStage.None || _testAutoFishingRecastAfterRepairPending)
+                {
+                    repairProgress = OverlayHudProgress.Fixed(1);
+                    repairColor = OverlayHudColor.Ok;
+                }
+                else if (_nextTestAutoFishingRepairAtUtc == DateTime.MaxValue)
+                {
+                    repairProgress = OverlayHudProgress.Fixed(0);
+                }
+                else
+                {
+                    repairProgress = new OverlayHudProgress(
+                        _nextTestAutoFishingRepairAtUtc.AddSeconds(-repairInterval),
+                        _nextTestAutoFishingRepairAtUtc);
+                }
+            }
+
+            string body = $"Detekcja: {detectionStateLabel}\n{catchLine}\n{commandLine}\n{bobberLine}\nBind {bindLabel} · obszar {captureBindLabel}";
+            return new OverlayHudEntry("AUTO ŁOWIENIE", body, OverlayHudTone.Active)
+            {
+                Icon = OverlayHudIcon.Fishing,
+                Badge = runtimeStateLabel,
+                Headline = FormatRuntimeDuration(fishingElapsedSeconds),
+                HeadlineColor = OverlayHudColor.Ink,
+                Progress = repairProgress,
+                ProgressColor = repairColor
+            };
         }
 
         private static string FormatRuntimeDuration(int totalSeconds)
@@ -4584,42 +4975,6 @@ namespace MinecraftHelper
             return duration.TotalHours >= 1
                 ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
                 : $"{duration.Minutes:00}:{duration.Seconds:00}";
-        }
-
-        private string BuildKopacz533CommandOverlayLine(DateTime now)
-        {
-            if (_kopacz533CommandStage != Kopacz533CommandStage.None && !string.IsNullOrWhiteSpace(_kopacz533PendingCommand))
-            {
-                string pendingIndex = _kopacz533PendingCommandIndex >= 0 ? (_kopacz533PendingCommandIndex + 1).ToString(CultureInfo.InvariantCulture) : "?";
-                return $"Komenda #{pendingIndex}: {GetStatusCommandPreview(_kopacz533PendingCommand)} (teraz)";
-            }
-
-            if (TryPeekNextKopacz533Command(out int commandIndex, out string command, out _))
-            {
-                int remainingSeconds = GetKopaczCommandRemainingSeconds(InventoryCleanupOwner.Kopacz533, now);
-                string pauseLabel = IsKopaczCommandCountdownPaused(InventoryCleanupOwner.Kopacz533) ? " (pauza Auto EQ)" : string.Empty;
-                return $"Następna #{commandIndex + 1}: {GetStatusCommandPreview(command)} za {remainingSeconds}s{pauseLabel}";
-            }
-
-            return "Komenda: brak";
-        }
-
-        private string BuildKopacz633CommandOverlayLine(DateTime now)
-        {
-            if (_kopacz633CommandStage != Kopacz633CommandStage.None && !string.IsNullOrWhiteSpace(_kopacz633PendingCommand))
-            {
-                string pendingIndex = _kopacz633PendingCommandIndex >= 0 ? (_kopacz633PendingCommandIndex + 1).ToString(CultureInfo.InvariantCulture) : "?";
-                return $"Komenda #{pendingIndex}: {GetStatusCommandPreview(_kopacz633PendingCommand)} (teraz)";
-            }
-
-            if (TryPeekNextKopacz633Command(out int commandIndex, out string command, out _))
-            {
-                int remainingSeconds = GetKopaczCommandRemainingSeconds(InventoryCleanupOwner.Kopacz633, now);
-                string pauseLabel = IsKopaczCommandCountdownPaused(InventoryCleanupOwner.Kopacz633) ? " (pauza Auto EQ)" : string.Empty;
-                return $"Następna #{commandIndex + 1}: {GetStatusCommandPreview(command)} za {remainingSeconds}s{pauseLabel}";
-            }
-
-            return "Komenda: brak";
         }
 
         private string GetKopacz533StageLabel()
@@ -4667,24 +5022,6 @@ namespace MinecraftHelper
         }
 
         private static int GetKopacz633MsPerBlock() => Kopacz633MsPerBlock;
-
-        private string GetKopacz633MovementOverlayLabel(DateTime now)
-        {
-            string movementLabel = _kopacz633StrafeDirection switch
-            {
-                Kopacz633StrafeDirection.Forward => "W ^",
-                Kopacz633StrafeDirection.Right => "D ->",
-                Kopacz633StrafeDirection.Backward => "S v",
-                Kopacz633StrafeDirection.Left => "A <-",
-                _ => "STOP"
-            };
-
-            if (_kopacz633StrafeDirection == Kopacz633StrafeDirection.None)
-                return $"Ruch: {movementLabel}";
-
-            int remainingMs = Math.Max(0, (int)Math.Ceiling((_kopacz633MovementLegEndAtUtc - now).TotalMilliseconds));
-            return $"Ruch: {movementLabel} za {remainingMs}ms";
-        }
 
         private static string GetStatusCommandPreview(string command)
         {
@@ -4736,7 +5073,6 @@ namespace MinecraftHelper
         private void UpdateEnabledStates(object? sender = null, RoutedEventArgs? e = null)
         {
             bool kop533On = ChkKopacz533Enabled.IsChecked ?? false;
-            SetExpandableSectionState(PanelKopacz533Content, kop533On);
             TxtKopacz533Key.IsEnabled = kop533On;
             BtnKopacz533Capture.IsEnabled = kop533On;
             BtnKopacz533Clear.IsEnabled = kop533On;
@@ -4751,7 +5087,10 @@ namespace MinecraftHelper
             }
 
             bool kop633On = ChkKopacz633Enabled.IsChecked ?? false;
-            SetExpandableSectionState(PanelKopacz633Content, kop633On);
+            // Przed podmianą panelu: animacja karty mierzy wysokość już z tą notką.
+            UpdateKopaczUpwardInfoVisibility();
+            UpdateKopaczModePanel();
+            UpdateKopaczModeTiles();
             TxtKopacz633Key.IsEnabled = kop633On;
             BtnKopacz633Capture.IsEnabled = kop633On;
             BtnKopacz633Clear.IsEnabled = kop633On;
@@ -4770,9 +5109,9 @@ namespace MinecraftHelper
                 ResetKopacz633RuntimeState();
                 EndMiningLogRun(InventoryCleanupOwner.Kopacz633, "Kanał Kopacz 6/3/3 został wyłączony.");
             }
-            UpdateKopaczUpwardInfoVisibility();
 
             bool inventoryCleanupOn = ChkInventoryCleanupEnabled.IsChecked == true;
+            SetExpandableSectionState(PanelInventoryCleanupBasics, inventoryCleanupOn);
             SetExpandableSectionState(PanelInventoryCleanupExpandableContent, inventoryCleanupOn);
             PanelInventoryCleanupContent.IsEnabled = inventoryCleanupOn;
             RefreshInventoryCleanupItemTypeMode();
@@ -4780,6 +5119,7 @@ namespace MinecraftHelper
             SetExpandableSectionState(PanelCobbleXSettings, cobbleXSettingsOn);
             PanelCobbleXSettings.IsEnabled = cobbleXSettingsOn;
             UpdateGoldDepositSettingsUi();
+            UpdateEnderchestSettingsUi();
             if (!inventoryCleanupOn)
             {
                 if (IsGoldDepositActive)
@@ -4868,6 +5208,7 @@ namespace MinecraftHelper
 
             foreach (var cmd in commands)
                 AddCommandRow(panel, cmd, option);
+            UpdateKopaczModeTiles();
         }
 
         private void AddCommandRow(StackPanel panel, MinerCommand cmd, int option)
@@ -4875,8 +5216,7 @@ namespace MinecraftHelper
             var row = new Grid();
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(70) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(54) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -4897,21 +5237,11 @@ namespace MinecraftHelper
             {
                 Text = cmd.Command,
                 Style = (Style)FindResource("GlassMonoBox"),
-                Margin = new Thickness(10, 0, 10, 0),
+                Margin = new Thickness(10, 0, 8, 0),
                 ToolTip = "Komenda wpisywana na czacie"
             };
             Grid.SetColumn(commandBox, 1);
             row.Children.Add(commandBox);
-
-            var everyLabel = new TextBlock
-            {
-                Text = "co",
-                Foreground = GlassPalette.Muted,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(0, 0, 6, 0)
-            };
-            Grid.SetColumn(everyLabel, 2);
-            row.Children.Add(everyLabel);
 
             // Pełne minuty pokazujemy w minutach; zapis zawsze w sekundach (MinerCommand.Seconds).
             bool inMinutes = cmd.Seconds >= 60 && cmd.Seconds % 60 == 0;
@@ -4922,7 +5252,7 @@ namespace MinecraftHelper
                 HorizontalContentAlignment = HorizontalAlignment.Center,
                 ToolTip = "Co ile (liczone od poprzedniej komendy)"
             };
-            Grid.SetColumn(secondsBox, 3);
+            Grid.SetColumn(secondsBox, 2);
             row.Children.Add(secondsBox);
 
             var unit = new ComboBox
@@ -4934,7 +5264,7 @@ namespace MinecraftHelper
                 Margin = new Thickness(6, 0, 4, 0),
                 ToolTip = "Jednostka: sekundy albo minuty"
             };
-            Grid.SetColumn(unit, 4);
+            Grid.SetColumn(unit, 3);
             row.Children.Add(unit);
 
             var deleteIcon = new System.Windows.Shapes.Path
@@ -4950,7 +5280,7 @@ namespace MinecraftHelper
                 ToolTip = "Usuń komendę",
                 Content = new Viewbox { Width = 15, Height = 15, Child = deleteBox }
             };
-            Grid.SetColumn(deleteBtn, 5);
+            Grid.SetColumn(deleteBtn, 4);
             row.Children.Add(deleteBtn);
 
             deleteBtn.Click += (s, e) =>
@@ -5020,7 +5350,9 @@ namespace MinecraftHelper
 
             bool kop633Enabled = ChkKopacz633Enabled?.IsChecked == true;
             bool showAfkInfo = kop633Enabled && CbKopacz633Direction?.SelectedIndex == 2;
-            GlassMotion.SetExpanded(PanelKopaczUpwardAfkInfo, showAfkInfo, animate: !_isLoadingUi && IsLoaded);
+            // Rozsuwamy tylko w widocznym panelu; w ukrytym notka ma być gotowa od razu.
+            bool panelShown = ReferenceEquals(_kopaczModeShownPanel, PanelKopacz633Content);
+            GlassMotion.SetExpanded(PanelKopaczUpwardAfkInfo, showAfkInfo, animate: !_isLoadingUi && IsLoaded && panelShown);
         }
 
         private void StartBindCapture(BindTarget target)
@@ -5507,7 +5839,7 @@ namespace MinecraftHelper
             RefreshOverlayHud(DateTime.UtcNow);
         }
 
-        // Podsumowanie historii dla statusu zdalnego i HUD; szczegóły pokazuje zakładka Logi.
+        // Podsumowanie historii dla statusu zdalnego i HUD; szczegóły pokazuje okno Logi.
         private void RefreshMiningLogsSummary()
         {
             _latestMiningLogSummary = _miningLogService.GetSummary();
@@ -5556,8 +5888,8 @@ namespace MinecraftHelper
             _pendingChanges = true;
 
             TxtSettingsSaved.Text = "✗ Nie";
-            TxtSettingsSaved.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
-            EllSettingsSaved.Fill = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
+            TxtSettingsSaved.Foreground = GlassPalette.LegacyBrush(255, 107, 107);
+            EllSettingsSaved.Fill = GlassPalette.LegacyBrush(255, 107, 107);
 
             _dirtyTimer.Stop();
             _dirtyTimer.Start();
@@ -5573,8 +5905,8 @@ namespace MinecraftHelper
                 _pendingChanges = false;
 
                 TxtSettingsSaved.Text = "✓ Tak";
-                TxtSettingsSaved.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
-                EllSettingsSaved.Fill = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
+                TxtSettingsSaved.Foreground = GlassPalette.LegacyBrush(56, 214, 180);
+                EllSettingsSaved.Fill = GlassPalette.LegacyBrush(56, 214, 180);
 
                 UpdateStatusBar("Ustawienia zapisane", "Green");
             }
@@ -5583,8 +5915,8 @@ namespace MinecraftHelper
                 _pendingChanges = true;
 
                 TxtSettingsSaved.Text = "Błąd";
-                TxtSettingsSaved.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
-                EllSettingsSaved.Fill = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
+                TxtSettingsSaved.Foreground = GlassPalette.LegacyBrush(255, 107, 107);
+                EllSettingsSaved.Fill = GlassPalette.LegacyBrush(255, 107, 107);
 
                 UpdateStatusBar("Błąd zapisu: " + ex.Message, "Red");
             }
@@ -5629,6 +5961,7 @@ namespace MinecraftHelper
             _settings.CobbleXCommand = GetConfiguredCobbleXCommand();
             _settings.CobbleXRequiredFullStacks = GetConfiguredCobbleXRequiredStacks();
             SaveGoldDepositSettings();
+            SaveEnderchestSettings();
 
             _settings.TestAutoFishingEnabled = ChkTestAutoFishingEnabled.IsChecked ?? false;
             _settings.TestAutoFishingBind = TxtTestAutoFishingBind.Text.Trim();
@@ -6186,6 +6519,10 @@ namespace MinecraftHelper
                 {
                     StopGoldDeposit("Minecraft stracił fokus podczas wpłaty złota. Sprawdź przedmiot na kursorze.");
                 }
+                else if (IsEnderchestActive)
+                {
+                    StopEnderchest("Minecraft stracił fokus podczas przenoszenia do enderchesta.");
+                }
                 else if (_inventoryCleanupStage == InventoryCleanupStage.ReturnToMiningStart)
                 {
                     DateTime focusLostAtUtc = DateTime.UtcNow;
@@ -6313,6 +6650,13 @@ namespace MinecraftHelper
 
             if (changed)
                 RefreshOverlayHud(DateTime.UtcNow);
+
+            // Kopanie zatrzymane w trakcie kontroli kilofa — EQ nie może zostać otwarte.
+            if (!_kopacz533RuntimeEnabled && !_kopacz633RuntimeEnabled)
+            {
+                CloseMiningToolInventory();
+                _miningToolStage = MiningToolStage.None;
+            }
 
             DateTime now = DateTime.UtcNow;
             if (kop533ModeSelected && _kopacz533RuntimeEnabled)
@@ -6754,7 +7098,119 @@ namespace MinecraftHelper
             }
 
             _nextRuntimeTileRefreshAtUtc = now;
+            _enderchestFull = false; // nowy start: enderchest dostaje jedną próbę
+            RequestMiningToolSlot(now);
             StartMiningLogRun(InventoryCleanupOwner.Kopacz533);
+        }
+
+        // Kilof jest na slocie 1. Każdy start i powrót do kopania wybiera go zanim ruszy LPM:
+        // po wejściu na serwer albo /home w ręce może być cokolwiek.
+        // verifyPickaxe: najpierw otwiera EQ i sprawdza, czy diamentowy kilof leży na H1.
+        // Po Auto EQ niepotrzebne, bo jego skan robi to samo przy otwartym ekwipunku.
+        private void RequestMiningToolSlot(DateTime now, bool verifyPickaxe = true)
+        {
+            _miningToolStage = verifyPickaxe ? MiningToolStage.OpenInventory : MiningToolStage.SelectSlot;
+            _miningToolStageAtUtc = now.AddMilliseconds(MiningToolSlotDelayMs);
+            _miningToolDeadlineUtc = now.AddMilliseconds(MiningToolSlotGuiTimeoutMs);
+            _miningToolReadAttempts = 0;
+        }
+
+        // true = pętla kopania jeszcze czeka. Klawisz 1 przy otwartym ekranie zamieniłby przedmiot
+        // spod kursora ze slotem 1, a tuż po zamknięciu EQ trafiłby jeszcze do zamykanego ekranu —
+        // stąd krótkie pauzy i czekanie na zamknięcie ekranu (w tle kursora gry nie widać).
+        private bool WaitForMiningToolSlot(InventoryCleanupOwner owner, DateTime now)
+        {
+            if (_miningToolStage == MiningToolStage.None)
+                return false;
+            if (now < _miningToolStageAtUtc)
+                return true;
+
+            bool guiOpen = !_miningToolInventoryOpen && !BackgroundGameWindow.IsActive && IsInventoryCursorVisible();
+            switch (_miningToolStage)
+            {
+                case MiningToolStage.OpenInventory:
+                    if (guiOpen && now < _miningToolDeadlineUtc)
+                        return true;
+                    if (guiOpen)
+                    {
+                        // Cudzy ekran dalej otwarty — bez EQ nie sprawdzimy kilofa, zostaje wybór slotu.
+                        _miningToolStage = MiningToolStage.SelectSlot;
+                        return true;
+                    }
+                    if (!_miningToolInventoryOpen)
+                    {
+                        SendKeyTap(VK_E);
+                        _miningToolInventoryOpen = true;
+                    }
+                    _miningToolStage = MiningToolStage.ReadInventory;
+                    _miningToolStageAtUtc = now.AddMilliseconds(MiningToolInventoryWaitMs);
+                    return true;
+
+                case MiningToolStage.ReadInventory:
+                    bool? pickaxeOnToolSlot = IsPickaxeOnToolSlot();
+                    if (pickaxeOnToolSlot == null && ++_miningToolReadAttempts < MiningToolMaximumReadAttempts)
+                    {
+                        _miningToolStageAtUtc = now.AddMilliseconds(MiningToolReadRetryMs);
+                        return true;
+                    }
+
+                    CloseMiningToolInventory();
+                    if (pickaxeOnToolSlot == false)
+                    {
+                        _miningToolStage = MiningToolStage.None;
+                        StopMiningForMisplacedPickaxe(owner, now);
+                        return true;
+                    }
+                    // Bez paczki TXT nie da się potwierdzić kilofa — nie blokujemy kopania.
+                    if (pickaxeOnToolSlot == null)
+                        UpdateTemporaryStatusBar("Nie udało się sprawdzić kilofa na H1 — włącz w grze paczkę zasobów Kopacza.", "Orange", 6);
+                    _miningToolStage = MiningToolStage.SelectSlot;
+                    _miningToolStageAtUtc = now.AddMilliseconds(MiningToolSlotDelayMs);
+                    _miningToolDeadlineUtc = now.AddMilliseconds(MiningToolSlotGuiTimeoutMs);
+                    return true;
+
+                case MiningToolStage.SelectSlot:
+                    if (guiOpen && now < _miningToolDeadlineUtc)
+                        return true;
+                    _miningToolStage = MiningToolStage.None;
+                    if (guiOpen)
+                        UpdateStatusBar("Nie wybrano slotu 1: w grze nadal jest otwarty ekran. Sprawdź, czy trzymasz kilof.", "Orange");
+                    else
+                        SendKeyTap(VK_1);
+                    return false;
+
+                default:
+                    return false;
+            }
+        }
+
+        // null = nie udało się potwierdzić (brak obrazu albo paczki TXT).
+        private bool? IsPickaxeOnToolSlot()
+        {
+            if (!TryCaptureTargetClient(out Drawing.Bitmap? bitmap, out _))
+                return null;
+
+            using Drawing.Bitmap captured = bitmap!;
+            if (!InventoryMarkerDetector.TryDetect(captured, null, null, out InventoryMarkerDetection detection) || !detection.HasGuiMarkers)
+                return null;
+            return InventoryMarkerDetector.IsItemInSlot(captured, detection.Layout, InventoryMarkerDetector.ToolHotbarSlot, InventoryMarkerDetector.PickaxeItemId);
+        }
+
+        private void CloseMiningToolInventory()
+        {
+            if (!_miningToolInventoryOpen)
+                return;
+            SendKeyTap(VK_E);
+            _miningToolInventoryOpen = false;
+        }
+
+        private void StopMiningForMisplacedPickaxe(InventoryCleanupOwner owner, DateTime now)
+        {
+            const string reason = "Na slocie 1 (H1) nie ma diamentowego kilofa — kopanie zatrzymane.";
+            StopMiningRuntime(owner);
+            EndMiningLogRun(owner, reason, MiningLogStatuses.Aborted);
+            UpdateStatusBar(reason, "Red");
+            RefreshOverlayHud(now);
         }
 
         private bool HasMiningWork(InventoryCleanupOwner owner)
@@ -6934,8 +7390,9 @@ namespace MinecraftHelper
             }
 
             _kopacz633UpwardLegIndex = 0;
-            StartKopacz633NextMovementLeg(now);
-            SetKopacz633AttackHold(true);
+            // Ruch i LPM rusza pętla kopania, gdy slot kilofa jest już wybrany.
+            _enderchestFull = false; // nowy start: enderchest dostaje jedną próbę
+            RequestMiningToolSlot(now);
             _nextRuntimeTileRefreshAtUtc = now;
             StartMiningLogRun(InventoryCleanupOwner.Kopacz633);
         }
@@ -7017,6 +7474,7 @@ namespace MinecraftHelper
             }
             if (!cobbleXEnabled
                 && !goldEnabled
+                && !IsEnderchestReady()
                 && !discardEverythingExceptCobblestone
                 && GetSelectedInventoryCleanupItemTypes().Count == 0)
             {
@@ -7059,7 +7517,9 @@ namespace MinecraftHelper
             _inventoryCleanupCobbleXCommandSendCount = 0;
             _inventoryCleanupPendingCobbleXCommand = string.Empty;
             ResetGoldDepositState();
+            ResetEnderchestState();
             _goldDepositSummary = string.Empty;
+            _enderchestSummary = string.Empty;
             _inventoryCleanupEatAfterCleanupPending = ChkInventoryCleanupEatAfterCleanup.IsChecked == true;
             _inventoryCleanupEatingCompleted = false;
             _inventoryCleanupOpenedAtUtc = now;
@@ -7177,6 +7637,12 @@ namespace MinecraftHelper
             if (_inventoryCleanupStage == InventoryCleanupStage.DepositGold)
             {
                 ProcessGoldDeposit(now);
+                return;
+            }
+
+            if (_inventoryCleanupStage == InventoryCleanupStage.MoveToEnderchest)
+            {
+                ProcessEnderchest(now);
                 return;
             }
 
@@ -7367,9 +7833,11 @@ namespace MinecraftHelper
                         requiredCobbleStacks);
                     _inventoryCleanupLastResult = $"{cleanupResult}; {cobbleResult}";
                     if (_goldDepositSummary.Length > 0) _inventoryCleanupLastResult += "; " + _goldDepositSummary;
+                    if (_enderchestSummary.Length > 0) _inventoryCleanupLastResult += "; " + _enderchestSummary;
                     if (_inventoryCleanupEatingCompleted)
                         _inventoryCleanupLastResult += "; jedzenie zakończone, slot 1 przywrócony";
                     bool cleanupWarning = _inventoryCleanupRemainingMarkedStacks > 0;
+                    RequestMiningToolSlot(now, verifyPickaxe: false);
                     _inventoryCleanupLastResultWarning = cobbleXFailed || cleanupWarning || !string.IsNullOrWhiteSpace(miningLogError);
                     ResetInventoryCleanupState(scheduleNext: true, now);
                     UpdateInventoryCleanupStatus(
@@ -7457,6 +7925,8 @@ namespace MinecraftHelper
                     bool discardEverythingExceptCobblestone = ChkInventoryCleanupAllItemTypes.IsChecked == true;
                     bool goldEnabled = ChkGoldDepositEnabled.IsChecked == true;
                     GoldDepositOptions goldOptions = GoldOptions();
+                    bool enderchestEnabled = IsEnderchestReady();
+                    EnderchestOptions enderchestOptions = EnderchestOptionsFromUi();
                     var scan = await Task.Run(() =>
                     {
                         bool found = InventoryMarkerDetector.TryDetect(capturedBitmap, enabledSlots, enabledItemTypes, out InventoryMarkerDetection result);
@@ -7466,7 +7936,11 @@ namespace MinecraftHelper
                             ? InventoryMarkerDetector.ReadMarkedItems(capturedBitmap, result.Layout, goldOptions.IncludeHotbar)
                                 .Where(item => goldOptions.IsSelected(item.ItemId)).ToArray()
                             : Array.Empty<DetectedInventoryItem>();
-                        return (Found: found, Detection: result, GoldItems: goldItems);
+                        var enderchestItems = found && enderchestEnabled && result.HasGuiMarkers
+                            ? InventoryMarkerDetector.ReadMarkedItems(capturedBitmap, result.Layout, includeHotbar: true)
+                                .Where(enderchestOptions.IsSelected).ToArray()
+                            : Array.Empty<DetectedInventoryItem>();
+                        return (Found: found, Detection: result, GoldItems: goldItems, EnderchestItems: enderchestItems);
                     });
                     if (!IsInventoryCleanupScanCurrent(generation, owner)
                         || targetWindow != _targetGameWindowHandle
@@ -7493,6 +7967,20 @@ namespace MinecraftHelper
                     if (TryHandleMissingPickaxeDuringInventoryCleanup(capturedBitmap, detection, now))
                         return;
 
+                    // Kilof przełożony albo zniszczony w trakcie pracy: EQ jest otwarte, więc to pewny odczyt.
+                    if (detection.HasGuiMarkers
+                        && !InventoryMarkerDetector.IsItemInSlot(capturedBitmap, detection.Layout, InventoryMarkerDetector.ToolHotbarSlot, InventoryMarkerDetector.PickaxeItemId))
+                    {
+                        SendKeyTap(VK_E);
+                        RecordAbortedInventoryCleanup("Na slocie 1 (H1) nie ma diamentowego kilofa.");
+                        _inventoryCleanupLastResult = "Przerwano: brak kilofa na H1";
+                        _inventoryCleanupLastResultWarning = true;
+                        ResetInventoryCleanupState(scheduleNext: false, now);
+                        UpdateInventoryCleanupStatus("Na slocie 1 (H1) nie ma diamentowego kilofa. Zatrzymuję kopanie.", "Red");
+                        StopMiningForMisplacedPickaxe(owner, now);
+                        return;
+                    }
+
                     if (goldEnabled && !detection.HasGuiMarkers)
                     {
                         StopGoldDeposit("Wpłata wymaga potwierdzonych znaczników GUI aktualnej paczki Minecraft Helper. Niczego nie wyrzucono.");
@@ -7516,6 +8004,13 @@ namespace MinecraftHelper
                         detectedItems = detectedItems.Where(item => !GoldDepositOptions.IsGold(item.ItemId) && item.ItemId != "other").ToArray();
                         detectedSlots = detectedItems.Select(item => item.Slot).ToArray();
                         _goldDepositPending = ChkGoldDepositEnabled.IsChecked == true && scan.GoldItems.Length > 0;
+                    }
+                    // Przedmioty do enderchesta nie są wyrzucane, także gdy enderchest okaże się pełny.
+                    if (enderchestEnabled)
+                    {
+                        detectedItems = detectedItems.Where(item => !enderchestOptions.ItemTypes.Contains(item.ItemId)).ToArray();
+                        detectedSlots = detectedItems.Select(item => item.Slot).ToArray();
+                        _enderchestPending = scan.EnderchestItems.Length > 0 && !_enderchestFull;
                     }
                     UpdateConfirmedInventoryCleanupCounts(detectedItems);
                     int requiredCobbleStacks = GetConfiguredCobbleXRequiredStacks();
@@ -8016,6 +8511,7 @@ namespace MinecraftHelper
 
         private InventoryCleanupStage GetInventoryCleanupPostCommandStage()
         {
+            if (_enderchestPending && ChkEnderchestEnabled.IsChecked == true) return InventoryCleanupStage.MoveToEnderchest;
             if (_goldDepositPending && ChkGoldDepositEnabled.IsChecked == true) return InventoryCleanupStage.DepositGold;
             return _inventoryCleanupEatAfterCleanupPending
                 ? InventoryCleanupStage.SelectFoodSlot
@@ -8105,6 +8601,7 @@ namespace MinecraftHelper
                 RecordAbortedInventoryCleanup("Sesja EQ została zatrzymana przed zakończeniem skanowania.");
             }
             ResetGoldDepositState();
+            ResetEnderchestState();
 
             ReleaseInventoryCleanupDropKeys();
             ReleaseInventoryCleanupReturnKeys();
@@ -8159,6 +8656,10 @@ namespace MinecraftHelper
                 SetKopacz633StrafeDirection(Kopacz633StrafeDirection.None);
                 return;
             }
+
+            // Przed Auto EQ i komendami: kontrola kilofa sama otwiera EQ.
+            if (WaitForMiningToolSlot(InventoryCleanupOwner.Kopacz633, now))
+                return;
 
             if (TryRunInventoryCleanup(InventoryCleanupOwner.Kopacz633, now))
                 return;
@@ -8246,6 +8747,10 @@ namespace MinecraftHelper
 
         private void RunKopacz533Tick(DateTime now)
         {
+            // Przed Auto EQ i komendami: kontrola kilofa sama otwiera EQ.
+            if (WaitForMiningToolSlot(InventoryCleanupOwner.Kopacz533, now))
+                return;
+
             if (TryRunInventoryCleanup(InventoryCleanupOwner.Kopacz533, now))
                 return;
 
@@ -8746,10 +9251,10 @@ namespace MinecraftHelper
 
             TxtStatusBar.Text = message;
             TxtStatusBar.Foreground =
-                colorName == "Red" ? new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107)) :
-                colorName == "Green" ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180)) :
-                colorName == "Orange" ? new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36)) :
-                new SolidColorBrush(GlassPalette.MapLegacyColor(207, 219, 235));
+                colorName == "Red" ? GlassPalette.LegacyBrush(255, 107, 107) :
+                colorName == "Green" ? GlassPalette.LegacyBrush(56, 214, 180) :
+                colorName == "Orange" ? GlassPalette.LegacyBrush(251, 191, 36) :
+                GlassPalette.LegacyBrush(207, 219, 235);
         }
 
         private void UpdateTemporaryStatusBar(string message, string colorName, int seconds = 4)
@@ -8939,13 +9444,13 @@ namespace MinecraftHelper
                     ? "Automatycznie: " + sourceDescription
                     : sourceDescription;
                 TxtEmergencyDamageSoundSource.Foreground = matchedMinecraft
-                    ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
-                    : new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36));
+                    ? GlassPalette.LegacyBrush(56, 214, 180)
+                    : GlassPalette.LegacyBrush(251, 191, 36);
             }
             catch (Exception ex)
             {
                 TxtEmergencyDamageSoundSource.Text = "Nie udało się sprawdzić sesji Minecrafta: " + ex.Message;
-                TxtEmergencyDamageSoundSource.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
+                TxtEmergencyDamageSoundSource.Foreground = GlassPalette.LegacyBrush(255, 107, 107);
             }
         }
 
@@ -8958,8 +9463,8 @@ namespace MinecraftHelper
                 ? $"Stały wzorzec gotowy: hit1–hit4 • {count} profili widma • minimalny poziom {_settings.EmergencyDamageSoundMinimumDb:0} dB."
                 : "Nie udało się wczytać stałych wzorców hit1–hit4 z plików aplikacji.";
             TxtEmergencyDamageSoundReferenceInfo.Foreground = count > 0
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
-                : new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                ? GlassPalette.LegacyBrush(56, 214, 180)
+                : GlassPalette.LegacyBrush(146, 166, 193);
         }
 
         private void UpdateEmergencyDamageSoundStatus(string message, string colorName = "Default")
@@ -8969,12 +9474,12 @@ namespace MinecraftHelper
                 return;
             TxtEmergencyDamageSoundStatus.Text = message;
             TxtEmergencyDamageSoundStatus.Foreground = colorName == "Red"
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107))
+                ? GlassPalette.LegacyBrush(255, 107, 107)
                 : colorName == "Green"
-                    ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
+                    ? GlassPalette.LegacyBrush(56, 214, 180)
                     : colorName == "Orange"
-                        ? new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36))
-                        : new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                        ? GlassPalette.LegacyBrush(251, 191, 36)
+                        : GlassPalette.LegacyBrush(146, 166, 193);
         }
 
         private void UpdateEmergencyReconnectStatus(string message, string colorName = "Default")
@@ -8984,12 +9489,12 @@ namespace MinecraftHelper
                 return;
             TxtEmergencyReconnectStatus.Text = message;
             TxtEmergencyReconnectStatus.Foreground = colorName == "Red"
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107))
+                ? GlassPalette.LegacyBrush(255, 107, 107)
                 : colorName == "Green"
-                    ? new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180))
+                    ? GlassPalette.LegacyBrush(56, 214, 180)
                     : colorName == "Orange"
-                        ? new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36))
-                        : new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                        ? GlassPalette.LegacyBrush(251, 191, 36)
+                        : GlassPalette.LegacyBrush(146, 166, 193);
         }
 
         private void RefreshEmergencyReconnectProfileSummary()
@@ -9000,7 +9505,7 @@ namespace MinecraftHelper
             if (!IsEmergencyReconnectEnabled())
             {
                 TxtEmergencyReconnectProfileSummary.Text = "Reconnect wyłączony. Po alarmie tylko Disconnect, bez home i wznowienia kopania. Profil nie jest wymagany.";
-                TxtEmergencyReconnectProfileSummary.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193));
+                TxtEmergencyReconnectProfileSummary.Foreground = GlassPalette.LegacyBrush(146, 166, 193);
                 return;
             }
 
@@ -9008,7 +9513,7 @@ namespace MinecraftHelper
             if (profile == null)
             {
                 TxtEmergencyReconnectProfileSummary.Text = "Brak profilu Auto reconnect. Dodaj i wybierz profil serwera.";
-                TxtEmergencyReconnectProfileSummary.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(255, 107, 107));
+                TxtEmergencyReconnectProfileSummary.Foreground = GlassPalette.LegacyBrush(255, 107, 107);
                 return;
             }
 
@@ -9024,8 +9529,8 @@ namespace MinecraftHelper
                 $"Kilof wykryty: {normalHome} → wznowienie Kopacza\n" +
                 $"Brak kilofa: {missingHome} → teleport i zamknięcie programu";
             TxtEmergencyReconnectProfileSummary.Foreground = profile.MissingPickaxeRecoveryEnabled
-                ? new SolidColorBrush(GlassPalette.MapLegacyColor(146, 166, 193))
-                : new SolidColorBrush(GlassPalette.MapLegacyColor(251, 191, 36));
+                ? GlassPalette.LegacyBrush(146, 166, 193)
+                : GlassPalette.LegacyBrush(251, 191, 36);
             if (!profile.MissingPickaxeRecoveryEnabled)
                 TxtEmergencyReconnectProfileSummary.Text += "\nUWAGA: w profilu jest wyłączona obsługa braku kilofa.";
         }
@@ -9216,7 +9721,7 @@ namespace MinecraftHelper
             }
 
             _emergencyDamageSoundManualTestActive = true;
-            _emergencyDamageSoundManualTestUntilUtc = DateTime.UtcNow.AddSeconds(15);
+            _emergencyDamageSoundManualTestUntilUtc = DateTime.UtcNow.Add(EmergencyDamageSoundManualTestDuration);
             StartEmergencyDamageSoundMonitoring(manualTest: true);
         }
 
@@ -9503,7 +10008,7 @@ namespace MinecraftHelper
         private bool IsMinecraftGuiLikelyOpenForEmergency()
         {
             bool inventoryOpen = _inventoryCleanupScanInProgress
-                || (_inventoryCleanupStage == InventoryCleanupStage.DepositGold && IsGameGuiOpen())
+                || (_inventoryCleanupStage is InventoryCleanupStage.DepositGold or InventoryCleanupStage.MoveToEnderchest && IsGameGuiOpen())
                 || _inventoryCleanupStage is InventoryCleanupStage.WaitForInventory
                     or InventoryCleanupStage.MoveToSlot
                     or InventoryCleanupStage.PressDropModifier
@@ -9662,6 +10167,8 @@ namespace MinecraftHelper
             if (_isLoadingUi)
                 return;
 
+            if (ChkKopacz533Enabled.IsChecked == true)
+                RbKopacz533Tile.IsChecked = true;
             UpdateEnabledStates();
             MarkDirty();
         }
@@ -9671,6 +10178,8 @@ namespace MinecraftHelper
             if (_isLoadingUi)
                 return;
 
+            if (ChkKopacz633Enabled.IsChecked == true)
+                RbKopacz633Tile.IsChecked = true;
             UpdateEnabledStates();
             MarkDirty();
         }
@@ -9713,6 +10222,7 @@ namespace MinecraftHelper
 
         private void ChkInventoryCleanupEatAfterCleanup_Changed(object sender, RoutedEventArgs e)
         {
+            UpdateInventoryCleanupFoodSlotLock();
             if (_isLoadingUi)
                 return;
 
@@ -9766,8 +10276,8 @@ namespace MinecraftHelper
                 _pendingChanges = false;
                 _dirtyTimer.Stop();
                 TxtSettingsSaved.Text = "✓ Tak";
-                TxtSettingsSaved.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
-                EllSettingsSaved.Fill = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
+                TxtSettingsSaved.Foreground = GlassPalette.LegacyBrush(56, 214, 180);
+                EllSettingsSaved.Fill = GlassPalette.LegacyBrush(56, 214, 180);
 
                 _isMinecraftFocused = CheckGameFocus();
                 if (selectedProcess != null && LooksLikeLauncherWindow(selectedProcess))
@@ -9841,8 +10351,8 @@ namespace MinecraftHelper
 
                     _pendingChanges = false;
                     TxtSettingsSaved.Text = "✓ Tak";
-                    TxtSettingsSaved.Foreground = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
-                    EllSettingsSaved.Fill = new SolidColorBrush(GlassPalette.MapLegacyColor(56, 214, 180));
+                    TxtSettingsSaved.Foreground = GlassPalette.LegacyBrush(56, 214, 180);
+                    EllSettingsSaved.Fill = GlassPalette.LegacyBrush(56, 214, 180);
                 }
                 catch (Exception ex)
                 {

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using MinecraftHelper.Models;
 using MinecraftHelper.Services;
 
 namespace MinecraftHelper
@@ -61,6 +62,7 @@ namespace MinecraftHelper
 
             _ownsSingleInstanceMutex = true;
             StartupSplashWindow? splash = null;
+            MainWindow? startedWindow = null;
             try
             {
                 int workspaceProcessId = 0;
@@ -75,6 +77,8 @@ namespace MinecraftHelper
                 }
                 else
                 {
+                    // Ekran startowy w motywie i akcencie z ustawień — tak jak okno, które otworzy się po nim.
+                    ApplySavedLook(profileId);
                     splash = new StartupSplashWindow(SplashMinDurationMs);
                     splash.Show();
                     await Task.Delay(SplashMinDurationMs);
@@ -104,6 +108,7 @@ namespace MinecraftHelper
                         await Workspace.SelectAsync(MinerProfileId.Default);
                         GlassMessageDialog.Show(mainWindow, "Minecraft Helper — konto", response.Message, GlassMessageKind.Warning);
                     }
+                    startedWindow = mainWindow;
                 }
             }
             catch (Exception ex)
@@ -118,6 +123,19 @@ namespace MinecraftHelper
             {
                 splash?.Close();
             }
+
+            // Samouczek dopiero po pełnym starcie: okno odpowiedziało na workspace-show,
+            // a ekran startowy jest zamknięty.
+            startedWindow?.BeginStartupTutorial();
+        }
+
+        // Okno główne nakłada motyw dopiero przy budowie; ekran startowy pokazuje się wcześniej,
+        // więc motyw (Jasny / Ciemny / Jak w Windows) i akcent czytamy tu z zapisanych ustawień.
+        private static void ApplySavedLook(string profileId)
+        {
+            AppSettings saved = new SettingsService(profileId).Load();
+            GlassThemeMode.Apply(GlassThemeMode.Normalize(saved.ThemeMode));
+            GlassAccents.Apply(GlassAccents.Normalize(saved.GlassAccent));
         }
 
         private static async Task ForwardToWorkspaceAsync(string? profileId)

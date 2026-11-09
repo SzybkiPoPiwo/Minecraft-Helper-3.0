@@ -12,7 +12,7 @@
         ResizeMode="CanResize"
         UseLayoutRounding="True"
         Background="{DynamicResource GlassBackdropBrush}"
-        Foreground="{StaticResource GlassInkBrush}"
+        Foreground="{DynamicResource GlassInkBrush}"
         FontFamily="{StaticResource GlassFont}"
         FontSize="13">
     <Window.Resources>
@@ -27,7 +27,7 @@
         </Style>
         <Style x:Key="Hint" TargetType="TextBlock">
             <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#4F566B"/>
+            <Setter Property="Foreground" Value="{DynamicResource GlassInk2Brush}"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
     </Window.Resources>
@@ -40,7 +40,7 @@
                             UseAeroCaptionButtons="False"/>
     </shell:WindowChrome.WindowChrome>
 
-    <Border BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="1">
+    <Border BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="56"/>
@@ -48,7 +48,7 @@
                 <RowDefinition Height="66"/>
             </Grid.RowDefinitions>
 
-            <Border Grid.Row="0" Background="#8CFFFFFF" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="0,0,0,1"
+            <Border Grid.Row="0" Background="{DynamicResource GlassNavHoverBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="0,0,0,1"
                     MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
                 <Grid Margin="18,0,10,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -112,7 +112,7 @@
                                 </Grid>
 
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <TextBlock Text="Pole do kliknięcia:" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}"/>
+                                    <TextBlock Text="Pole do kliknięcia:" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}"/>
                                     <TextBlock Name="TxtSelectedSlot" Margin="8,0,0,0" FontWeight="Bold" Foreground="{DynamicResource GlassAccentInkBrush}"/>
                                 </StackPanel>
                                 <TextBlock Text="Kliknij slot. Przyciski z prawej i na dole zmieniają rozmiar planszy." Style="{StaticResource Hint}" Margin="0,0,0,10"/>
@@ -127,23 +127,23 @@
                                         <RowDefinition Height="Auto"/>
                                     </Grid.RowDefinitions>
 
-                                    <Border Name="BorderHomeSlots" Background="#99FFFFFF" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="1" CornerRadius="14" Padding="5">
+                                    <Border Name="BorderHomeSlots" Background="{DynamicResource GlassSurfaceBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1" CornerRadius="14" Padding="5">
                                         <UniformGrid Name="PanelHomeSlots"/>
                                     </Border>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                        <TextBlock Text="Kolumny" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                        <TextBlock Text="Kolumny" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                                         <Button Content="+" Width="38" Margin="0,0,0,6" ToolTip="Dodaj kolumnę" Click="BtnAddColumn_Click"/>
                                         <Button Content="−" Width="38" ToolTip="Usuń kolumnę" Click="BtnRemoveColumn_Click"/>
                                     </StackPanel>
 
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
-                                        <TextBlock Text="Rzędy" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Rzędy" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                         <Button Content="−" Width="38" Margin="0,0,6,0" ToolTip="Usuń rząd" Click="BtnRemoveRow_Click"/>
                                         <Button Content="+" Width="38" ToolTip="Dodaj rząd" Click="BtnAddRow_Click"/>
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Name="TxtGridSize" FontSize="12" Foreground="{StaticResource GlassInk2Brush}" Margin="0,8,0,0"/>
+                                <TextBlock Name="TxtGridSize" FontSize="12" Foreground="{DynamicResource GlassInk2Brush}" Margin="0,8,0,0"/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -183,7 +183,7 @@
                                     </Grid>
 
                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                        <TextBlock Text="Pole do kliknięcia:" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}"/>
+                                        <TextBlock Text="Pole do kliknięcia:" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}"/>
                                         <TextBlock Name="TxtMissingPickaxeSelectedSlot" Margin="8,0,0,0" FontWeight="Bold" Foreground="{DynamicResource GlassAccentInkBrush}"/>
                                     </StackPanel>
                                     <TextBlock Text="Kliknij slot używany wyłącznie po wykryciu braku diamentowego kilofa." Style="{StaticResource Hint}" Margin="0,0,0,10"/>
@@ -198,23 +198,23 @@
                                             <RowDefinition Height="Auto"/>
                                         </Grid.RowDefinitions>
 
-                                        <Border Name="BorderMissingPickaxeHomeSlots" Background="#99FFFFFF" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="1" CornerRadius="14" Padding="5">
+                                        <Border Name="BorderMissingPickaxeHomeSlots" Background="{DynamicResource GlassSurfaceBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1" CornerRadius="14" Padding="5">
                                             <UniformGrid Name="PanelMissingPickaxeHomeSlots"/>
                                         </Border>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
-                                            <TextBlock Text="Kolumny" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                            <TextBlock Text="Kolumny" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}" HorizontalAlignment="Center" Margin="0,0,0,4"/>
                                             <Button Content="+" Width="38" Margin="0,0,0,6" ToolTip="Dodaj kolumnę" Click="BtnMissingPickaxeAddColumn_Click"/>
                                             <Button Content="−" Width="38" ToolTip="Usuń kolumnę" Click="BtnMissingPickaxeRemoveColumn_Click"/>
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,8,0,0">
-                                            <TextBlock Text="Rzędy" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource GlassInk2Brush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <TextBlock Text="Rzędy" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource GlassInk2Brush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
                                             <Button Content="−" Width="38" Margin="0,0,6,0" ToolTip="Usuń rząd" Click="BtnMissingPickaxeRemoveRow_Click"/>
                                             <Button Content="+" Width="38" ToolTip="Dodaj rząd" Click="BtnMissingPickaxeAddRow_Click"/>
                                         </StackPanel>
                                     </Grid>
-                                    <TextBlock Name="TxtMissingPickaxeGridSize" FontSize="12" Foreground="{StaticResource GlassInk2Brush}" Margin="0,8,0,0"/>
+                                    <TextBlock Name="TxtMissingPickaxeGridSize" FontSize="12" Foreground="{DynamicResource GlassInk2Brush}" Margin="0,8,0,0"/>
                                 </StackPanel>
                             </StackPanel>
                         </StackPanel>
@@ -241,11 +241,11 @@
                         </StackPanel>
                     </Border>
 
-                    <TextBlock Name="TxtValidation" Foreground="{StaticResource GlassBadBrush}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="4,8,0,0"/>
+                    <TextBlock Name="TxtValidation" Foreground="{DynamicResource GlassBadBrush}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="4,8,0,0"/>
                 </StackPanel>
             </ScrollViewer>
 
-            <Border Grid.Row="2" Background="#8CFFFFFF" BorderBrush="{StaticResource GlassLineBrush}" BorderThickness="0,1,0,0">
+            <Border Grid.Row="2" Background="{DynamicResource GlassNavHoverBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="0,1,0,0">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="16,0">
                     <Button Content="Anuluj" MinWidth="105" Margin="0,0,10,0" Click="BtnCancel_Click"/>
                     <Button Content="Zapisz profil" MinWidth="130" Style="{StaticResource GlassPrimaryButton}" Click="BtnSave_Click"/>

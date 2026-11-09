@@ -12,6 +12,8 @@
     <Using Remove="System.Windows.Forms" />
     <ProjectReference Include="../../MinecraftHelper/MinecraftHelper.csproj" Aliases="production" />
     <Compile Include="../../MinecraftHelper/Services/GoldDepositFlow.cs" Link="GoldDepositFlow.cs" />
+    <Compile Include="../../MinecraftHelper/Services/EnderchestFlow.cs" Link="EnderchestFlow.cs" />
+    <Compile Include="../../MinecraftHelper/ActionMapCatalog.cs" Link="ActionMapCatalog.cs" />
     <Compile Include="../../MinecraftHelper/Services/InventoryMarkerDetector.cs" Link="InventoryMarkerDetector.cs" />
     <Compile Include="../../MinecraftHelper/Models/AppSettings.cs" Link="AppSettings.cs" />
   </ItemGroup>

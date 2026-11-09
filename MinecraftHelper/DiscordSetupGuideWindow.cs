@@ -10,7 +10,7 @@ using MinecraftHelper.Services;
 
 namespace MinecraftHelper;
 
-// Poradnik „Jak skonfigurować?” z karty Bot Discord: pełna instrukcja dla osoby,
+// Poradnik „Jak skonfigurować?” z zakładki Discord: pełna instrukcja dla osoby,
 // która nigdy nie tworzyła bota. Okno nie jest modalne — można je mieć obok przeglądarki.
 internal sealed class DiscordSetupGuideWindow : Window
 {
@@ -110,23 +110,23 @@ internal sealed class DiscordSetupGuideWindow : Window
         steps.Children.Add(Step(number++, "Wklej dane do Kopacza i wyślij test",
             new[]
             {
-                "W Kopaczu wejdź w **Ustawienia** → karta **Bot Discord** (ta sama, w której jest przycisk „Jak skonfigurować?”):",
-                "• **Token bota** — wklej token z kroku 3 i naciśnij **Enter** (albo kliknij Zapisz). Pole zrobi się puste, pod nim pojawi się „Token zapisany (zaszyfrowany)”, a przełącznik bota włączy się sam. To dobrze — token jest bezpiecznie schowany.",
+                "W Kopaczu otwórz zakładkę **Discord** (w pasku bocznym, pod Logami) i włącz przełącznik **Bot Discord** na górze — dopiero wtedy pojawią się pola do wpisania:",
+                "• **Token bota** — wklej token z kroku 3 i naciśnij **Enter** (albo kliknij **Zapisz ustawienia Discord**). Pole zrobi się puste, a pod nim pojawi się „Token zapisany (zaszyfrowany)”. To dobrze — token jest bezpiecznie schowany.",
                 "• **ID kanału** — liczba z kroku 7.",
                 "• **Twoje ID (właściciele)** — Twoja liczba z kroku 7. Kilka osób wpisz po przecinku. Tylko te osoby mogą wydawać komendy botowi.",
                 "• **Prefiks** — znak przed komendą. Zostaw `!` (komendy będą wyglądać tak: `!status`).",
                 "Kliknij **Wyślij test**. Na kanale powinna pojawić się wiadomość od bota z Twoim oznaczeniem — udany test z nowym tokenem od razu go zapisuje. Jeśli coś jest źle, pasek na dole okna Kopacza powie co — zajrzyj do sekcji „Coś nie działa” na końcu."
             }));
 
-        steps.Children.Add(Step(number++, "Włącz bota i zapisz",
+        steps.Children.Add(Step(number++, "Zapisz i sprawdź połączenie",
             new[]
             {
-                "1. Sprawdź **przełącznik w prawym górnym rogu karty** Bot Discord (obok przycisku „Jak skonfigurować?”) — po zapisaniu nowego tokenu włącza się sam; jeśli jest wyłączony, włącz go.",
+                "1. Sprawdź, czy **przełącznik Bot Discord** na górze zakładki (obok przycisku „Jak skonfigurować?”) jest włączony — działa od razu, bez zapisywania.",
                 "2. Kliknij **Zapisz ustawienia Discord**.",
-                "3. Po kilku sekundach linia stanu w karcie pokaże **„Połączony jako …”** z zieloną kropką, a bot na serwerze zrobi się zielony (online).",
+                "3. Po kilku sekundach linia stanu pod przełącznikiem pokaże **„Połączony jako …”** z zieloną kropką, a bot na serwerze zrobi się zielony (online).",
                 "4. Na kanale wpisz `!pomoc` — bot odpowie listą komend."
             },
-            warning: "Komendy działają tylko przy włączonym przełączniku i zapisanych ustawieniach. Jeśli wyłączysz przełącznik, bot zamilknie do ponownego włączenia i zapisu.",
+            warning: "Komendy działają tylko przy włączonym przełączniku i zapisanych ustawieniach. Wyłączenie przełącznika od razu wycisza bota i chowa jego ustawienia — po ponownym włączeniu wszystko wraca.",
             tip: "Bot działa, dopóki działa główne okno Kopacza — może być schowane w zasobniku obok zegara. Po zamknięciu Kopacza bot przechodzi w offline."));
 
         steps.Children.Add(Step(number++, "Wybierz powiadomienia",
@@ -139,7 +139,7 @@ internal sealed class DiscordSetupGuideWindow : Window
                 "• **Błędy** — błędy programu (te same co w konsoli `>_`).",
                 "• **Dołącz zrzut ekranu** — do alarmów dołączany jest zrzut z gry.",
                 "• **Oznacz mnie przy alarmach** — ping przy ważnych zdarzeniach, żeby telefon zadzwonił.",
-                "• **Zrzut co / Status co (min)** — cykliczny zrzut ekranu albo status wszystkich kont, np. co 30 minut. `0` = wyłączone.",
+                "• **Status co jakiś czas / Zrzut ekranu co jakiś czas** — po włączeniu wpisz, co ile minut bot ma sam wysłać status wszystkich kont albo zrzut z gry, np. co 30 minut.",
                 "Po każdej zmianie kliknij **Zapisz ustawienia Discord**.",
                 "Kliknij **Testuj powiadomienia** — na kanał przyjdzie przykład każdego włączonego powiadomienia, z oznaczeniem i zrzutem z gry, dokładnie tak jak przy prawdziwym zdarzeniu. W grze nic się nie dzieje."
             },
@@ -160,7 +160,7 @@ internal sealed class DiscordSetupGuideWindow : Window
                 "`!stop [konto]` — zatrzymaj kopanie; samo `!stop` zatrzymuje wszystkie konta",
                 "`!join [konto] [5/3/3|6/3/3]` — wejdź na serwer jak Auto Reconnect (lista serwerów, Direct Connect, /home, kontrola EQ) i zacznij kopać. Wymaga profilu powrotu w zakładce Ochrona; wynik przyjdzie od konta",
                 "`!leave [konto]` — zatrzymaj kopanie i wyjdź z serwera (ESC → Disconnect)",
-                "Każdą komendę (poza `!pomoc`) możesz wyłączyć przyciskiem **Włącz / wyłącz komendy** w karcie Bot Discord — bot odpowie wtedy, że jest wyłączona."
+                "Każdą komendę (poza `!pomoc`) możesz wyłączyć przyciskiem **Włącz / wyłącz komendy** w zakładce Discord (karta Komendy) — bot odpowie wtedy, że jest wyłączona."
             }));
 
         steps.Children.Add(BuildTroubleshooting());
@@ -281,10 +281,10 @@ internal sealed class DiscordSetupGuideWindow : Window
             ("Test: brak dostępu do kanału (403)", "Bot nie widzi kanału albo nie może pisać. Krok 6: dodaj botowi uprawnienia na kanale."),
             ("Test: nie znaleziono kanału (404)", "Złe ID kanału — może to ID serwera albo wiadomości. Krok 7: PPM na kanał → Kopiuj ID kanału."),
             ("Stan: „Włącz Message Content Intent”", "Krok 4. Potem w Kopaczu kliknij jeszcze raz „Zapisz ustawienia Discord”."),
-            ("Test działa, ale bot nie odpowiada na !pomoc", "Przełącznik bota jest wyłączony. Krok 9: włącz przełącznik → Zapisz."),
+            ("Test działa, ale bot nie odpowiada na !pomoc", "Przełącznik bota jest wyłączony. Krok 9: włącz przełącznik Bot Discord na górze zakładki Discord."),
             ("Bot odpowiada „Brak uprawnień”", "Twojego ID nie ma w polu właścicieli albo wpisano złe ID. Krok 7 i 8."),
             ("Bot milczy na innym kanale", "Komendy działają tylko na ustawionym kanale albo w wiadomości prywatnej do bota."),
-            ("Bot jest offline", "Główne okno Kopacza musi działać (może być w zasobniku). Sprawdź linię stanu w karcie Bot Discord."),
+            ("Bot jest offline", "Główne okno Kopacza musi działać (może być w zasobniku). Sprawdź linię stanu na górze zakładki Discord."),
             ("Dalej nie wiesz, co się dzieje", "Otwórz konsolę `>_` w lewym dolnym rogu Kopacza i poszukaj wpisów oznaczonych „Discord”.")
         };
 
@@ -412,7 +412,7 @@ internal sealed class DiscordSetupGuideWindow : Window
             if (url == null)
             {
                 GlassMessageDialog.Show(Window.GetWindow(button), "Brak zapisanego tokenu",
-                    "Najpierw wklej token bota w karcie Bot Discord i kliknij „Zapisz ustawienia Discord” (kroki 3 i 8). Potem wróć tutaj — link zbuduje się sam.\n\nMożesz też użyć sposobu ręcznego opisanego w tym kroku.");
+                    "Najpierw włącz bota w zakładce Discord, wklej token i kliknij „Zapisz ustawienia Discord” (kroki 3 i 8). Potem wróć tutaj — link zbuduje się sam.\n\nMożesz też użyć sposobu ręcznego opisanego w tym kroku.");
                 return;
             }
             if (!TryCopy(url))

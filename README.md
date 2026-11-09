@@ -2,14 +2,14 @@
   <img src="docs/images/minecraft-helper-banner.png" alt="Minecraft Helper — automatyzacja dla Minecraft 1.8.8" width="100%">
 </p>
 
-<h1 align="center">Minecraft Helper 3.0</h1>
+<h1 align="center">Minecraft Helper 3.0.3</h1>
 
 <p align="center">
   Dwie niezależne aplikacje dla Minecraft 1.8.8: lekki <strong>Auto Clicker</strong> do PVP i <strong>Kopacz</strong> do kopania z Auto EQ, ochroną, wieloma kontami i botem Discord.
 </p>
 
 <p align="center">
-  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0</strong> · <a href="LICENSE"><strong>GPL-3.0</strong></a>
+  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0.3</strong> · <a href="LICENSE"><strong>GPL-3.0</strong></a>
 </p>
 
 <p align="center">
@@ -19,7 +19,7 @@
   <a href="#bot-discord">Bot Discord</a> ·
   <a href="#instalacja">Instalacja</a> ·
   <a href="#budowanie-ze-źródeł">Budowanie</a> ·
-  <a href="#zmiany-w-wersji-30">Zmiany</a> ·
+  <a href="#zmiany-w-wersji-301">Zmiany</a> ·
   <a href="#licencja">Licencja</a>
 </p>
 
@@ -47,7 +47,7 @@ Aplikacje instalujesz razem albo osobno; każda ma własne ustawienia, ikonę i 
 4. **Włącz paczkę zasobów** (tylko Kopacz) — Kopacz sam ją tworzy; w grze włącz `MinecraftHelper AutoEQ + CobbleX (1.8.8)` na samej górze listy i ustaw `GUI Scale: Large`. Szczegóły: [paczka zasobów](#paczka-zasobów).
 5. **Ustaw bindy i sprawdź w bezpiecznym miejscu** — każdy moduł uruchamiasz zapisanym bindem; podpowiedzi są pod przyciskami `?`.
 
-Przy pierwszym uruchomieniu i po aktualizacji każda aplikacja pokazuje okno „Co nowego”. Przy starcie obie sprawdzają najnowsze wydanie na GitHubie i tylko informują o nowej wersji — niczego nie pobierają same.
+Przy pierwszym uruchomieniu oba programy prowadzą przez samouczek w trybie ćwiczeń ([Kopacz](#samouczek), 42 kroki; Auto Clicker, 15 kroków), a Auto Clicker po każdej aktualizacji pokazuje okno „Co nowego”. Przy starcie obie sprawdzają najnowsze wydanie na GitHubie i tylko informują o nowej wersji — niczego nie pobierają same.
 
 ## Auto Clicker
 
@@ -76,6 +76,9 @@ Każdy kanał ma bind, zakres CPS (od–do) i jeden z trybów:
 
 - **Tryb DAB** przytrzymuje klawisz `O` podczas klikania AUTO LPM.
 - **Pauza przy kucaniu** wstrzymuje AUTO LPM, gdy trzymasz klawisz skradania.
+- **Trzymany PPM** wstrzymuje AUTO PPM w trybach z osobnym bindem, np. żeby zjeść. Po puszczeniu klikanie wraca samo.
+- **Samouczek** w trybie ćwiczeń: przycisk u góry okna pokazuje sekcje bieżącej zakładki, a **Ustawienia → Pokaż samouczek** cały przewodnik.
+- **Kapitulacja** (Ustawienia) — osobny bind i przycisk, które wyłączają naraz wszystkie działające makra, także przy otwartym ekwipunku, czacie i GUI. Bind działa, gdy gra ma fokus; ustaw klawisz, którego nie używasz na czacie.
 - Pierwsze kliknięcie pada od razu, a puszczenie bindu zatrzymuje kanał przed następnym. Dokładny zegar Windows działa tylko podczas klikania.
 
 ### Akcje PVP
@@ -118,7 +121,22 @@ Bind zamienia założony komplet z drugim setem z ekwipunku. Raz kalibrujesz osi
 
 ## Kopacz
 
-Okno z paskiem bocznym: **Konta** i **Logi** dotyczą wszystkich kont, a **Kopanie**, **Ekwipunek**, **Ochrona**, **Okno gry**, **Narzędzia** i **Ustawienia** — wybranego konta. Pasek u góry pokazuje stan konta, czas sesji, przycisk START, **Podgląd** (obraz gry tego konta na żywo w osobnym oknie) i **Kalibruj okno**. Ikona `>_` na dole paska bocznego otwiera **konsolę zdarzeń** — dziennik programu na żywo, z filtrem poziomu i kopiowaniem.
+Okno z paskiem bocznym: **Konta** (z przyciskiem **Logi**) dotyczą wszystkich kont, a **Kopanie**, **Ekwipunek**, **Ochrona**, **Okno gry**, **Narzędzia** i **Ustawienia** — wybranego konta. Pasek u góry pokazuje stan konta, czas sesji, przycisk START, **Podgląd** (obraz gry tego konta na żywo w osobnym oknie) i **Kalibruj okno**. Ikona `>_` na dole paska bocznego otwiera **konsolę zdarzeń** — dziennik programu na żywo, z filtrem poziomu i kopiowaniem.
+
+### Samouczek
+
+<p align="center">
+  <a href="docs/images/v3-miner-tutorial.png"><img src="docs/images/v3-miner-tutorial.png" alt="Samouczek Kopacza w trybie ćwiczeń" width="100%"></a><br>
+  <sub>Samouczek w trybie ćwiczeń: podświetlona sekcja i opis obok niej.</sub>
+</p>
+
+Przy pierwszym uruchomieniu Kopacz zamiast programu otwiera **samouczek w trybie ćwiczeń** — makietę z prawdziwych zrzutów, w której klikasz podświetlone miejsca albo **Dalej**. Prowadzi po każdej sekcji wszystkich zakładek (42 kroki); kliknięcia niczego nie zmieniają, nie szukają gry i nie łączą bota. Po **Zakończ** albo **Pomiń** otwiera się prawdziwy Kopacz.
+
+- **Samouczek** obok tytułu każdej zakładki pokazuje tylko jej sekcje.
+- **Ustawienia → Pokaż samouczek** powtarza całość.
+- Na ostatniej stronie instalatora samouczek jest domyślnie zaznaczony — po odznaczeniu Kopacz otwiera się od razu.
+
+Strzałki i Enter przechodzą dalej, Esc zamyka samouczek. Gdy w Windows animacje są wyłączone, samouczek przełącza kroki bez animacji.
 
 ### Kopanie
 
@@ -163,7 +181,7 @@ Jeśli gry 1.8.8 jeszcze nie ma, uruchom ją raz z launchera — Kopacz utworzy 
   <sub>Awaryjna ochrona: wykrycie trafienia → Disconnect → powrót i kopanie.</sub>
 </p>
 
-**Awaryjna ochrona** nasłuchuje dźwięku gry podczas kopania i porównuje go ze wzorcami `hit1–hit4`. Po trafieniu:
+**Awaryjna ochrona** nasłuchuje dźwięku gry podczas kopania i porównuje go ze wzorcami `hit1–hit4`. Wzorce i znaczniki ekranów pochodzą z [paczki zasobów](#paczka-zasobów) Kopacza, więc ochrona i reconnect działają tylko z paczką **włączoną w grze**. Po trafieniu:
 
 1. zatrzymuje kopanie i wychodzi z serwera (`ESC → Disconnect`),
 2. w trybie **Disconnect + powrót** po ustawionym czasie wraca na serwer (Direct Connect z profilu),
@@ -215,7 +233,7 @@ Każde konto to osobny proces z własnymi ustawieniami, logami i oknem gry — a
   <sub>Historia wszystkich kont: sesje, skany EQ, CobbleX, reconnect i ochrona.</sub>
 </p>
 
-Jedno uruchomienie Kopacza to jedna sesja. Po rozwinięciu widać kolejne skany EQ, CobbleX, wpłaty złota, reconnecty, alarmy ochrony i powroty na home, a po kliknięciu wpisu — pełne szczegóły (sloty, wyrzucone sztuki i stosy, co zostało). Wyszukiwarka filtruje po każdym polu, **Zapisz raport** eksportuje widoczne wpisy do CSV albo TXT, a **Wyczyść historię** czyści historię oglądanego konta.
+Logi otwierasz przyciskiem w zakładce Konta. Jedno uruchomienie Kopacza to jedna sesja. Po rozwinięciu widać kolejne skany EQ, CobbleX, wpłaty złota, reconnecty, alarmy ochrony i powroty na home, a po kliknięciu wpisu — pełne szczegóły (sloty, wyrzucone sztuki i stosy, co zostało). Wyszukiwarka filtruje po każdym polu, **Zapisz raport** eksportuje widoczne wpisy do CSV albo TXT, a **Wyczyść historię** czyści historię oglądanego konta.
 
 ### Narzędzia (beta)
 
@@ -231,9 +249,10 @@ Jedno uruchomienie Kopacza to jedna sesja. Po rozwinięciu widać kolejne skany 
 - **Profil konta** — nazwa wyświetlana i przełączanie kont.
 - **Kopia ustawień** — eksport i import pliku JSON.
 - **Paczka zasobów** — stan, ponowne utworzenie i folder `resourcepacks`.
-- **Wygląd** — akcent Iris, Koral albo Ocean i animowane tło.
-- **HUD nad grą** — panel z etapem pracy, czasem, wynikami EQ i odliczaniem ochrony; wybór monitora i narożnika.
+- **Wygląd** — motyw jasny, ciemny albo jak w Windows (przełącza się razem z trybem aplikacji w systemie), akcent Iris, Koral albo Ocean i animowane tło.
+- **HUD nad grą** — kafelki z ikoną, plakietką stanu (ON, PAUZA, TEST, ALARM), dużą wartością i płynnym paskiem odliczania: czas kopania, komendy w pętli (następna, kolejka, pauza podczas Auto EQ), Auto EQ i ochrona; wybór monitora i narożnika.
 - **Bot Discord** — zobacz [niżej](#bot-discord).
+- **Samouczek** — cały samouczek jeszcze raz, zobacz [wyżej](#samouczek).
 - **Menu developera** — zobacz [niżej](#menu-developera).
 
 ### Bot Discord
@@ -250,10 +269,10 @@ Własny bot na Twoim serwerze Discord wysyła powiadomienia i przyjmuje komendy 
 
 1. W Developer Portal utwórz aplikację i bota oraz włącz **Message Content Intent** — bez niego bot nie widzi treści komend.
 2. Zaproś bota na swój serwer (poradnik buduje link zaproszenia z tokenu).
-3. W karcie Bot Discord wklej token (Enter albo **Zapisz** — przełącznik bota włączy się sam), ID kanału i swoje ID jako właściciela.
+3. W zakładce **Discord** włącz przełącznik **Bot Discord**, wklej token (Enter albo **Zapisz ustawienia Discord**), ID kanału i swoje ID jako właściciela.
 4. **Wyślij test** sprawdza token, kanał i uprawnienia jedną wiadomością.
 
-**Powiadomienia** (każde można wyłączyć): alarm ochrony, reconnect, brak kilofa, start i koniec kopania z podsumowaniem sesji oraz błędy. Karty mają zrzut ekranu z gry, robiony dopiero, gdy ekran pokazuje skutek akcji, a przy alarmach — oznaczenie właściciela. **Testuj powiadomienia** wysyła przykład każdej karty. Opcjonalnie bot co ustawioną liczbę minut wysyła też **cykliczny zrzut ekranu** i **status** wszystkich kont (`0` = wyłączone).
+**Powiadomienia** (każde można wyłączyć): alarm ochrony, reconnect, brak kilofa, start i koniec kopania z podsumowaniem sesji oraz błędy. Karty mają zrzut ekranu z gry, robiony dopiero, gdy ekran pokazuje skutek akcji, a przy alarmach — oznaczenie właściciela. **Testuj powiadomienia** wysyła przykład każdej karty. Opcjonalnie bot co ustawioną liczbę minut wysyła też **cykliczny zrzut ekranu** i **status** wszystkich kont — pole minut pojawia się po włączeniu opcji.
 
 **Komendy** przyjmuje tylko od wpisanych właścicieli, na ustawionym kanale albo w wiadomości prywatnej:
 
@@ -304,12 +323,12 @@ Przycisk `X` w obu aplikacjach nie kończy programu — chowa okno do zasobnika 
 
 ## Instalacja
 
-Pobierz `MinecraftHelper-Setup-3.0.exe` z [wydań na GitHubie](https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0/releases) i uruchom. Na ekranie składników wybierz **Auto Clicker**, **Kopacza** albo oba. Instalator działa dla bieżącego użytkownika, nie wymaga osobnej instalacji .NET i dodaje zwykły deinstalator Windows. Starszą, połączoną wersję programu wykrywa sam i prowadzi przez migrację; ustawienia zostają zachowane.
+Pobierz `MinecraftHelper-Setup-3.0.3.exe` z [wydań na GitHubie](https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0/releases) i uruchom. Na ekranie składników wybierz **Auto Clicker**, **Kopacza** albo oba. Instalator działa dla bieżącego użytkownika, nie wymaga osobnej instalacji .NET i dodaje zwykły deinstalator Windows. Starszą, połączoną wersję programu wykrywa sam i prowadzi przez migrację; ustawienia zostają zachowane. Na ostatniej stronie zdecydujesz, czy Kopacz ma przy pierwszym uruchomieniu pokazać samouczek.
 
 Przed aktualizacją zamknij obie aplikacje z menu zasobnika. Sumę SHA-256 oficjalnego pliku znajdziesz w opisie wydania; dla pliku pobranego sprawdzisz ją poleceniem:
 
 ```powershell
-Get-FileHash .\MinecraftHelper-Setup-3.0.exe -Algorithm SHA256
+Get-FileHash .\MinecraftHelper-Setup-3.0.3.exe -Algorithm SHA256
 ```
 
 ### Windows SmartScreen i Smart App Control
@@ -338,7 +357,7 @@ dotnet run --project ".\MinecraftHelper\MinecraftHelper.csproj" -c Release      
 Instalator:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 3.0 -Rid win-x64
+.\scripts\build-installer.ps1 -Version 3.0.3 -Rid win-x64
 ```
 
 Testy regresji (bez uruchamiania gry; test `GoldDeposit` korzysta z zainstalowanej gry 1.8.8):
@@ -348,6 +367,56 @@ Testy regresji (bez uruchamiania gry; test `GoldDeposit` korzysta z zainstalowan
 ```
 
 Generator paczki zasobów jest w [MarkerResourcePack.cs](MinecraftHelper/Services/MarkerResourcePack.cs). Po zmianie znaczników podnieś `GeneratorVersion` — Kopacz odbuduje paczkę u użytkowników.
+
+## Zmiany w wersji 3.0.3
+
+**Kopacz**
+
+- Bot Discord i Wpłata złota mają własne zakładki w pasku bocznym. Wyłączone opcje chowają swoje ustawienia.
+- Nowy wygląd zakładki Kopanie: kafelek wybiera tryb, a jego ustawienia są poniżej. Tryb 5/3/3 kopie w miejscu, więc ma tylko bind i komendy.
+- Logi przeniesione do zakładki Konta (przycisk **Logi**), w osobnym oknie: lista jak w konsoli, szczegóły wpisu i filtr „Tylko problemy”.
+- Auto EQ może wyrzucać także z paska na dole, a tryb „Wszystko poza cobblestone” nigdy nie wyrzuca diamentowego kilofa.
+- Każdy start kopania i powrót na serwer sprawdza, czy diamentowy kilof leży na slocie 1.
+- Mapa działania (przycisk w Ustawieniach) pokazuje kolejne kroki przy obecnych ustawieniach i ten wykonywany teraz.
+- Po aktualizacji panel „Nowe w …” pokazuje nowości, a „Pokaż” przenosi prosto do nich.
+
+**Auto Clicker**
+
+- Nowy wygląd zakładek Clicker i Akcje: kafelki AUTO LPM i AUTO PPM z jednym panelem, a slot i bind każdego przedmiotu w jednym wierszu.
+- Przytrzymanie PPM wstrzymuje AUTO PPM, np. żeby zjeść. Po puszczeniu klikanie wraca samo.
+- **Kapitulacja** w Ustawieniach: osobny bind i przycisk wyłączają naraz wszystkie działające makra, także przy otwartym ekwipunku i GUI.
+
+**Wspólne**
+
+- Samouczek w trybie ćwiczeń w obu programach, z przyciskiem przy zakładkach.
+- Okno aktualizacji pokazuje, co zmieniło się w nowej wersji, i pozwala pominąć wersję.
+- Nowa instalacja startuje w jasnym motywie; zapisany wybór motywu zostaje.
+
+## Zmiany w wersji 3.0.2
+
+**Wspólne**
+
+- Tryb ciemny w obu programach: **Ustawienia → Wygląd → Motyw** — Jasny, Ciemny albo Jak w Windows (domyślnie, przełącza się razem z trybem aplikacji w systemie). Ciemnieją też okna dialogowe, menu zasobnika, HUD i pasek tytułu.
+- Nowy HUD nad grą: każdy kafelek ma ikonę, plakietkę stanu (ON, PAUZA, TEST, ALARM), dużą wartość i płynnie przesuwający się pasek odliczania.
+
+**Kopacz**
+
+- Komendy w pętli mają w HUD własny kafelek: następna komenda z odliczaniem, kolejne w kolejce i pasek do wysłania. Podczas Auto EQ kafelek pokazuje pauzę z zachowanym czasem.
+- Ekran wczytywania w wybranym motywie i kolorze akcentu.
+- Na karcie konta stan nie nachodzi już na nazwę konta.
+
+## Zmiany w wersji 3.0.1
+
+**Kopacz**
+
+- Samouczek w trybie ćwiczeń przy pierwszym uruchomieniu: 36 kroków po każdej sekcji programu, na makiecie z prawdziwych zrzutów.
+- Przycisk **Samouczek** obok tytułu każdej zakładki i **Ustawienia → Pokaż samouczek**.
+- Samouczek przypomina, że ochrona i reconnect wymagają włączonej w grze paczki zasobów Kopacza.
+- Poprawione tło: na szerokich oknach plamy koloru nie urywają się już twardą poziomą krawędzią.
+
+**Instalator**
+
+- Nowy wygląd w stylu szkła, krótsze opisy programów i pole „Pokaż samouczek przy pierwszym uruchomieniu” (domyślnie zaznaczone).
 
 ## Zmiany w wersji 3.0
 

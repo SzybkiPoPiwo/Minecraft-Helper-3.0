@@ -378,7 +378,7 @@ namespace MinecraftHelper
                 Width = 24,
                 Height = 24,
                 CornerRadius = new CornerRadius(7),
-                Background = new SolidColorBrush(Color.FromArgb(0x24, 0x16, 0x1A, 0x2B)),
+                Background = GlassPalette.NeutralSoft,
                 Padding = new Thickness(4),
                 Margin = new Thickness(0, 0, 8, 0),
                 Child = new Viewbox { Child = icon }
@@ -726,11 +726,17 @@ namespace MinecraftHelper
                         : "Trwa przygotowanie sekwencji.";
             }
 
-            return new OverlayHudEntry(
-                "AUTO ZBROJA",
-                $"Teraz: {phase}\n{detail}",
-                tone,
-                Emphasize: true);
+            string headline = phase.Length == 0
+                ? phase
+                : phase[0] + phase.Substring(1).ToLower(CultureInfo.CurrentCulture);
+            return new OverlayHudEntry("AUTO ZBROJA", detail, tone, Emphasize: true)
+            {
+                Icon = OverlayHudIcon.Armor,
+                Badge = _autoArmorCalibrationPending ? "KALIBRACJA" : "W TOKU",
+                BadgeColor = _autoArmorCalibrationPending ? OverlayHudColor.Warn : OverlayHudColor.Ok,
+                Headline = headline,
+                HeadlineColor = OverlayHudColor.Ink
+            };
         }
     }
 }

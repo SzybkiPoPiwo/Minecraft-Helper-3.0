@@ -386,10 +386,17 @@ public partial class MainWindow
             _ => "gotowe"
         };
         return new OverlayHudEntry(
-            GetPvpQuickActionName(_pvpQuickActionKind),
-            stage,
+            "AKCJA PVP",
+            "Klikacz PPM czeka do końca akcji",
             OverlayHudTone.Warning,
-            Emphasize: true);
+            Emphasize: true)
+        {
+            Icon = OverlayHudIcon.Bolt,
+            Badge = stage.ToUpperInvariant(),
+            BadgeColor = OverlayHudColor.Warn,
+            Headline = GetPvpQuickActionName(_pvpQuickActionKind),
+            HeadlineColor = OverlayHudColor.Ink
+        };
     }
 
     private void SetPvpQuickActionStatus(string message, Brush brush)

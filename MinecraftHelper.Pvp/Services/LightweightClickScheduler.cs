@@ -19,6 +19,7 @@ internal sealed class LightweightClickScheduler : IDisposable
     private int _jitterChance;
     private int _jitterDispersion;
     private int _leftPauseKey;
+    private bool _pauseRightWhileUserHolds;
     private bool _guardEnabled;
     private int _guardIntervalMs = 160;
     private int _guardGeneration;
@@ -59,6 +60,13 @@ internal sealed class LightweightClickScheduler : IDisposable
             _jitterDispersion = Math.Clamp(jitterDispersion, 0, PvpInputPolicies.JitterMaxDispersion);
             _leftPauseKey = pauseVirtualKey;
         }
+    }
+
+    // The schedule keeps running; clicks are skipped while the player holds PPM.
+    public void SetRightUserHoldPause(bool enabled)
+    {
+        lock (_sync)
+            _pauseRightWhileUserHolds = enabled;
     }
 
     public void UpdateAutoGuard(bool enabled, int intervalMs)
@@ -247,6 +255,7 @@ internal sealed class LightweightClickScheduler : IDisposable
         int targetProcessId;
         bool leftButton;
         int pauseKey;
+        bool yieldToHeldRightButton;
         lock (_sync)
         {
             if (_disposed || !channel.Enabled || channel.Timer == null)
@@ -270,6 +279,7 @@ internal sealed class LightweightClickScheduler : IDisposable
             targetProcessId = channel.TargetProcessId;
             leftButton = channel.LeftButton;
             pauseKey = leftButton ? _leftPauseKey : 0;
+            yieldToHeldRightButton = !leftButton && _pauseRightWhileUserHolds;
         }
 
         if ((requiredHoldKey != 0 && !IsVirtualKeyDown(requiredHoldKey))
@@ -284,7 +294,9 @@ internal sealed class LightweightClickScheduler : IDisposable
         // dispatcher tick. Recheck the real cursor immediately before every
         // injected click and fail closed if the guard itself cannot be read.
         // Sneak pause: the schedule keeps running, only the click is skipped.
-        bool pausedByKey = pauseKey != 0 && IsVirtualKeyDown(pauseKey);
+        // A held PPM comes from the hook, which ignores our own injected clicks.
+        bool pausedByKey = (pauseKey != 0 && IsVirtualKeyDown(pauseKey))
+            || (yieldToHeldRightButton && _isPhysicalPointerDown(VkRightButton));
         if (!pausedByKey && GameWindowFinder.IsProcessForeground(targetProcessId))
         {
             bool suppressClick;

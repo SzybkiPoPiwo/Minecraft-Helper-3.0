@@ -15,6 +15,53 @@ namespace MinecraftHelper
         private static readonly AppReleaseNotes[] Releases =
         {
             new AppReleaseNotes(
+                "3.0.3",
+                "Nowy wygląd, Kapitulacja i samouczek w obu programach",
+                new[]
+                {
+                    "Kopacz: bot Discord ma własną zakładkę w pasku bocznym. Przy wyłączonym bocie widać tylko jego przełącznik — karty Połączenie, Powiadomienia i Komendy rozwijają się po włączeniu.",
+                    "Kopacz: status i zrzut ekranu co jakiś czas włączasz przełącznikiem i wpisujesz, co ile minut — bez wpisywania 0.",
+                    "Kopacz: uporządkowane Ustawienia — kopia ustawień jest w karcie Profil konta, a samouczek, menu developera i informacje o programie w jednej karcie.",
+                    "Kopacz: uporządkowany Ekwipunek — ustawienia gry zwinięte do jednego wiersza, kolejność kroków w jednym pasku, a CobbleX i jedzenie w karcie Kroki dodatkowe.",
+                    "Kopacz: Auto EQ może wyrzucać także z paska na dole. Sloty wybierasz pojedynczo, a kilof na H1 i jedzenie na H2 są chronione.",
+                    "Kopacz: tryb „Wszystko poza cobblestone” nigdy nie wyrzuca diamentowego kilofa.",
+                    "Kopacz: każdy start kopania i powrót na serwer sprawdza, czy diamentowy kilof leży na slocie 1. Jeśli nie, kopanie się zatrzymuje. Potem wybiera slot 1 i zaczyna kopać.",
+                    "Kopacz: Wpłata złota ma własną zakładkę w pasku bocznym.",
+                    "Kopacz: nowy wygląd zakładki Kopanie. Kafelek wybiera tryb, a jego ustawienia są poniżej; 5/3/3 kopie w miejscu, więc ma tylko bind i komendy.",
+                    "Kopacz: Logi przeniesione do zakładki Konta, w osobnym oknie: lista jak w konsoli, szczegóły wpisu i filtr „Tylko problemy”.",
+                    "Kopacz: mapa działania (przycisk w Ustawieniach, osobne okno) pokazuje kolejne kroki przy obecnych ustawieniach i podświetla ten wykonywany teraz.",
+                    "Kopacz: po aktualizacji panel „Nowe w …” w rogu okna pokazuje nowości, a „Pokaż” przenosi prosto do nich i podświetla właściwą kartę.",
+                    "Kopacz: samouczek pokazuje obecny wygląd programu i obejmuje też zakładki Discord, Wpłata złota i Enderchest — każda ma swój przycisk „Samouczek”.",
+                    "Oba programy: okno aktualizacji pokazuje, co zmieniło się w nowej wersji, i pozwala pominąć wersję.",
+                    "Auto Clicker: przytrzymanie PPM wstrzymuje AUTO PPM (np. żeby zjeść), a po puszczeniu klikanie wraca samo.",
+                    "Auto Clicker: Kapitulacja w Ustawieniach — osobny bind wyłącza naraz wszystkie działające makra, także przy otwartym ekwipunku, czacie albo GUI.",
+                    "Auto Clicker: nowy wygląd zakładek Clicker i Akcje. AUTO LPM i AUTO PPM to kafelki z jednym panelem ustawień, a slot i bind każdego przedmiotu są w jednym wierszu.",
+                    "Auto Clicker: samouczek w trybie ćwiczeń, jak w Kopaczu. Przycisk „Samouczek” u góry okna pokazuje bieżącą zakładkę, a cały przewodnik powtórzysz w Ustawieniach.",
+                    "Oba programy: nowa instalacja startuje w jasnym motywie; zapisany wybór motywu zostaje."
+                }),
+            new AppReleaseNotes(
+                "3.0.2",
+                "Tryb ciemny i nowy HUD nad grą",
+                new[]
+                {
+                    "Oba programy: tryb ciemny. W Ustawieniach → Wygląd wybierzesz Jasny, Ciemny albo Jak w Windows (domyślnie) — wtedy program przełącza się razem z trybem aplikacji w Windows. Ciemnieją też okna dialogowe, menu zasobnika, HUD i pasek tytułu.",
+                    "Oba programy: nowy HUD nad grą. Każdy kafelek ma ikonę, plakietkę stanu (ON, PAUZA, TEST, ALARM), dużą wartość i płynnie przesuwający się pasek odliczania.",
+                    "Kopacz: komendy w pętli mają w HUD własny kafelek — następna komenda z odliczaniem, kolejne w kolejce i pasek do wysłania; podczas Auto EQ kafelek pokazuje pauzę.",
+                    "Kopacz: ekran wczytywania w wybranym motywie i kolorze akcentu.",
+                    "Kopacz: na karcie konta stan nie nachodzi już na nazwę konta."
+                }),
+            new AppReleaseNotes(
+                "3.0.1",
+                "Samouczek Kopacza i nowy instalator",
+                new[]
+                {
+                    "Kopacz: samouczek w trybie ćwiczeń. Przy pierwszym uruchomieniu prowadzi po wszystkich sekcjach programu (36 kroków) na makiecie z prawdziwych zrzutów — kliknięcia niczego nie zmieniają, a po zakończeniu otwiera się prawdziwy Kopacz.",
+                    "Kopacz: przycisk „Samouczek” obok tytułu każdej zakładki pokazuje tylko jej sekcje; cały samouczek powtórzysz w Ustawieniach → Pokaż samouczek.",
+                    "Kopacz: samouczek przypomina, że ochrona i reconnect wymagają włączonej w grze paczki TXT Kopacza.",
+                    "Kopacz: poprawiono tło — na szerokich oknach plamy koloru nie urywają się już twardą poziomą krawędzią.",
+                    "Instalator: nowy wygląd w stylu szkła, krótsze opisy programów i pole „Pokaż samouczek przy pierwszym uruchomieniu” (domyślnie zaznaczone)."
+                }),
+            new AppReleaseNotes(
                 "3.0",
                 "Nowy Minecraft Helper: osobny Auto Clicker i Kopacz",
                 new[]

@@ -41,6 +41,11 @@ internal sealed class MultiAccountPanel : UserControl
     private bool _bulkActionRunning;
     private int _liveFps = 30;
 
+    public event Action? LogsRequested;
+
+    /// <summary>Przycisk „Logi” — przewodnik po nowościach podświetla go po aktualizacji.</summary>
+    public Button LogsButton { get; private set; } = null!;
+
     public MultiAccountPanel(string currentProfileId)
     {
         _currentProfileId = MinerProfileId.Normalize(currentProfileId);
@@ -111,6 +116,14 @@ internal sealed class MultiAccountPanel : UserControl
         addButton.Click += (_, __) => AddProfile();
         DockPanel.SetDock(addButton, Dock.Right);
         header.Children.Add(addButton);
+        Button logsButton = CreateButton("Logi", null, "M9,6 H20 M9,12 H20 M9,18 H20 M4.5,6 H4.51 M4.5,12 H4.51 M4.5,18 H4.51");
+        logsButton.VerticalAlignment = VerticalAlignment.Bottom;
+        logsButton.Margin = new Thickness(0, 0, 8, 0);
+        logsButton.ToolTip = "Historia kopania wszystkich kont";
+        logsButton.Click += (_, __) => LogsRequested?.Invoke();
+        LogsButton = logsButton;
+        DockPanel.SetDock(logsButton, Dock.Right);
+        header.Children.Add(logsButton);
         var titles = new StackPanel();
         titles.Children.Add(new TextBlock { Text = "Konta", Style = GlassChrome.GetStyle("GlassH1") });
         titles.Children.Add(new TextBlock
@@ -327,9 +340,12 @@ internal sealed class MultiAccountPanel : UserControl
         }
     }
 
-    internal async Task RefreshWindowListAsync()
+    // Przy otwarciu listy: świeże okna od razu w tej liście, bez czekania na jej zamknięcie.
+    internal async Task RefreshWindowListAsync(AccountCard card)
     {
         _gameWindows = await Task.Run(GameWindowOption.FindAll);
+        if (card.IsWindowListOpen)
+            card.UpdateWindowChoices(_gameWindows, BuildWindowOwners(), force: true);
     }
 
     private Dictionary<int, string> BuildWindowOwners()
@@ -872,7 +888,15 @@ internal sealed class AccountCard
             }
         };
         _state = new TextBlock { Text = "Sprawdzanie…", FontSize = 11, FontWeight = FontWeights.Bold, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-        _statePill = new Border { Style = GlassChrome.GetStyle("GlassPill"), Child = _state, MaxWidth = 150 };
+        // Stan stoi w osobnej linii pod nazwą: w jednym wierszu z nazwą długi stan
+        // („Brak wybranego okna Minecrafta”) ucinał znaczek „wybrane” i nachodził na niego.
+        _statePill = new Border
+        {
+            Style = GlassChrome.GetStyle("GlassPill"),
+            Child = _state,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(46, 10, 0, 0)
+        };
         _windowLine = new TextBlock
         {
             Text = profile.Id,
@@ -900,8 +924,6 @@ internal sealed class AccountCard
         var head = new DockPanel();
         DockPanel.SetDock(avatar, Dock.Left);
         head.Children.Add(avatar);
-        DockPanel.SetDock(_statePill, Dock.Right);
-        head.Children.Add(_statePill);
         head.Children.Add(names);
 
         // Mini statystyki
@@ -924,13 +946,9 @@ internal sealed class AccountCard
             }
         };
 
-        _window = new ComboBox { IsEnabled = false, ToolTip = "Okno Minecrafta przypisane do konta" };
+        _window = new ComboBox { IsEnabled = false, Tag = "Brak okien Minecrafta — uruchom grę", ToolTip = "Okno Minecrafta przypisane do konta" };
         _window.SelectionChanged += async (_, __) => await OnWindowSelectedAsync();
-        _window.DropDownOpened += async (_, __) =>
-        {
-            await _owner.RefreshWindowListAsync();
-            _windowSignature = string.Empty;
-        };
+        _window.DropDownOpened += async (_, __) => await _owner.RefreshWindowListAsync(this);
 
         var buttons = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
         _toggle = MultiAccountPanel.CreateButton("START", "GlassPrimaryButton");
@@ -979,6 +997,7 @@ internal sealed class AccountCard
 
         var body = new StackPanel { Margin = new Thickness(16, 14, 16, 16) };
         body.Children.Add(head);
+        body.Children.Add(_statePill);
         body.Children.Add(stats);
         body.Children.Add(_hint);
         body.Children.Add(new TextBlock { Text = "Okno Minecrafta", Style = GlassChrome.GetStyle("GlassLabel"), Margin = new Thickness(0, 12, 0, 4) });
@@ -1050,7 +1069,7 @@ internal sealed class AccountCard
         panel.Children.Add(new TextBlock { Text = label, FontSize = 10.5, FontWeight = FontWeights.SemiBold, Foreground = GlassPalette.Muted, HorizontalAlignment = HorizontalAlignment.Center });
         return new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(0x9E, 0xFF, 0xFF, 0xFF)),
+            Background = GlassPalette.Surface,
             BorderBrush = GlassPalette.Line,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(12),
@@ -1225,9 +1244,12 @@ internal sealed class AccountCard
         _statePill.Background = GlassPalette.SoftFor(brush);
     }
 
+    public bool IsWindowListOpen => _window.IsDropDownOpen;
+
     public void UpdateWindowChoices(IReadOnlyList<GameWindowOption> windows, IReadOnlyDictionary<int, string> owners, bool force = false)
     {
-        if (_window.IsDropDownOpen)
+        // Cykliczne odświeżanie nie może przebudować listy pod kursorem; force — tak.
+        if (_window.IsDropDownOpen && !force)
             return;
 
         int selectedProcessId = Status?.GameProcessId ?? 0;
