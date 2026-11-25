@@ -36,7 +36,10 @@ internal sealed class TrayToastWindow : Window
     private static extern int SetWindowLong(IntPtr window, int index, int value);
 
     // Okno nie przejmuje fokusu, więc nie wyrywa gry z pełnego ekranu.
-    public TrayToastWindow(string title, string message, string iconResource, Action onClick)
+    // Pola opcjonalne służą komunikatom od autora (dzwonek „Komunikaty”): tag nad tytułem („OSTRZEŻENIE”),
+    // linijka na dole, dłuższy czas widoczności i kolor poziomu (ramka i tag). Powiadomienia z zasobnika ich nie podają.
+    public TrayToastWindow(string title, string message, string iconResource, Action onClick,
+        string? tag = null, string? footer = null, TimeSpan? visibleFor = null, Brush? accent = null)
     {
         _onClick = onClick;
         WindowStyle = WindowStyle.None;
@@ -63,11 +66,23 @@ internal sealed class TrayToastWindow : Window
         RenderOptions.SetBitmapScalingMode(icon, BitmapScalingMode.HighQuality);
 
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        if (!string.IsNullOrEmpty(tag))
+        {
+            text.Children.Add(new TextBlock
+            {
+                Text = tag,
+                FontSize = 10.5,
+                FontWeight = FontWeights.Bold,
+                Foreground = accent ?? GlassPalette.Muted,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
+        }
         text.Children.Add(new TextBlock
         {
             Text = title,
             FontSize = 13.5,
             FontWeight = FontWeights.Bold,
+            TextWrapping = TextWrapping.Wrap,
             Foreground = GlassPalette.Ink
         });
         text.Children.Add(new TextBlock
@@ -78,6 +93,18 @@ internal sealed class TrayToastWindow : Window
             Foreground = GlassPalette.Muted,
             Margin = new Thickness(0, 2, 0, 0)
         });
+        if (!string.IsNullOrEmpty(footer))
+        {
+            text.Children.Add(new TextBlock
+            {
+                Text = footer,
+                FontSize = 11.5,
+                FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GlassPalette.AccentInk,
+                Margin = new Thickness(0, 6, 0, 0)
+            });
+        }
 
         var row = new DockPanel();
         DockPanel.SetDock(icon, Dock.Left);
@@ -91,8 +118,8 @@ internal sealed class TrayToastWindow : Window
             Padding = new Thickness(14, 12, 16, 13),
             CornerRadius = new CornerRadius(16),
             Background = GlassPalette.Popup,
-            BorderBrush = GlassPalette.PopupStroke,
-            BorderThickness = new Thickness(1),
+            BorderBrush = accent ?? GlassPalette.PopupStroke,
+            BorderThickness = new Thickness(accent != null ? 1.5 : 1),
             Effect = new DropShadowEffect
             {
                 BlurRadius = 18,
@@ -105,15 +132,27 @@ internal sealed class TrayToastWindow : Window
             RenderTransform = _slide
         };
 
-        _hideTimer = new DispatcherTimer { Interval = VisibleDuration };
+        _hideTimer = new DispatcherTimer { Interval = visibleFor ?? VisibleDuration };
         _hideTimer.Tick += (_, _) => FadeOutAndClose();
         MouseLeftButtonUp += (_, _) =>
         {
             _onClick();
             FadeOutAndClose();
         };
+        // Wskaźnik nad okienkiem wstrzymuje zniknięcie (ktoś właśnie czyta); po zjechaniu zostaje jeszcze chwila.
+        MouseEnter += (_, _) => _hideTimer.Stop();
+        MouseLeave += (_, _) =>
+        {
+            if (_closing)
+                return;
+            _hideTimer.Interval = TimeSpan.FromSeconds(3);
+            _hideTimer.Start();
+        };
         Loaded += (_, _) => ShowAnimated();
     }
+
+    /// <summary>Zamyka okienko (płynne zgaszenie), np. gdy użytkownik otworzył już listę komunikatów.</summary>
+    public void Dismiss() => FadeOutAndClose();
 
     protected override void OnSourceInitialized(EventArgs e)
     {

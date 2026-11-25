@@ -31,26 +31,111 @@ public partial class MainWindow
     private int _goldDepositSelectedSlot = 11;
     private bool IsGoldDepositActive => _inventoryCleanupStage == InventoryCleanupStage.DepositGold || _goldDepositFlow != null;
 
-    private GoldDepositOptions GoldOptions() => new(
-        TxtGoldDepositCommand.Text.Trim(), TxtGoldDepositTitle.Text.Trim(),
-        _goldDepositRows, _goldDepositSelectedSlot,
-        ParseNonNegativeInt(TxtGoldDepositDelay.Text), ChkGoldDepositIngots.IsChecked == true,
-        ChkGoldDepositBlocks.IsChecked == true, ChkGoldDepositHotbar.IsChecked == true, _goldDepositColumns);
+    // Panel pokazuje menu jednego trybu naraz (komenda, tytuł, siatka, pole). Drugie menu czeka w _goldDepositHiddenConfig
+    // i zamienia się z panelem przy zmianie trybu, więc każdy tryb pamięta własne ustawienia.
+    private readonly record struct GoldMenuConfig(string Command, string Title, int Rows, int Columns, int Slot)
+    {
+        public GoldMenuConfig Normalized()
+        {
+            int rows = Math.Clamp(Rows, 1, 6);
+            int columns = Math.Clamp(Columns, 1, 9);
+            return new((Command ?? "").Trim(), (Title ?? "").Trim(), rows, columns, Math.Clamp(Slot, 1, rows * columns));
+        }
+    }
+
+    private GoldDepositMode _goldDepositMode;
+    private GoldMenuConfig _goldDepositHiddenConfig;
+
+    private GoldMenuConfig ReadGoldMenuConfig() => new(TxtGoldDepositCommand.Text.Trim(), TxtGoldDepositTitle.Text.Trim(),
+        _goldDepositRows, _goldDepositColumns, _goldDepositSelectedSlot);
+
+    private void ShowGoldMenuConfig(GoldMenuConfig config)
+    {
+        TxtGoldDepositCommand.Text = config.Command;
+        TxtGoldDepositTitle.Text = config.Title;
+        _goldDepositRows = config.Rows;
+        _goldDepositColumns = config.Columns;
+        _goldDepositSelectedSlot = config.Slot;
+    }
+
+    private GoldDepositOptions GoldOptions()
+    {
+        bool byCommand = _goldDepositMode == GoldDepositMode.Command;
+        // Komenda wpłaca złoto sama, więc rodzaje złota nie zawężają skanu EQ; zostaje tylko wybór paska na dole.
+        return new(TxtGoldDepositCommand.Text.Trim(), TxtGoldDepositTitle.Text.Trim(),
+            _goldDepositRows, _goldDepositSelectedSlot,
+            ParseNonNegativeInt(TxtGoldDepositDelay.Text), byCommand || ChkGoldDepositIngots.IsChecked == true,
+            byCommand || ChkGoldDepositBlocks.IsChecked == true, ChkGoldDepositHotbar.IsChecked == true, _goldDepositColumns, _goldDepositMode);
+    }
 
     private void LoadGoldDepositSettings()
     {
         ChkGoldDepositEnabled.IsChecked = _settings.GoldDepositEnabled;
-        TxtGoldDepositCommand.Text = _settings.GoldDepositCommand ?? "";
-        TxtGoldDepositTitle.Text = _settings.GoldDepositMenuTitle ?? "Bazar";
-        _goldDepositRows = Math.Clamp(_settings.GoldDepositRows, 1, 6);
-        _goldDepositColumns = Math.Clamp(_settings.GoldDepositColumns, 1, 9);
-        _goldDepositSelectedSlot = Math.Clamp(_settings.GoldDepositTargetSlot, 1, _goldDepositRows * _goldDepositColumns);
         TxtGoldDepositDelay.Text = Math.Clamp(_settings.GoldDepositOpenDelayMs, 500, 30000).ToString(CultureInfo.InvariantCulture);
         ChkGoldDepositIngots.IsChecked = _settings.GoldDepositIngots;
         ChkGoldDepositBlocks.IsChecked = _settings.GoldDepositBlocks;
         ChkGoldDepositHotbar.IsChecked = _settings.GoldDepositIncludeHotbar;
+        GoldMenuConfig manual = new(_settings.GoldDepositCommand ?? "", _settings.GoldDepositMenuTitle ?? "Bazar",
+            _settings.GoldDepositRows, _settings.GoldDepositColumns, _settings.GoldDepositTargetSlot);
+        GoldMenuConfig quick = new(_settings.GoldDepositQuickCommand ?? "", _settings.GoldDepositQuickMenuTitle ?? "",
+            _settings.GoldDepositQuickRows, _settings.GoldDepositQuickColumns, _settings.GoldDepositQuickTargetSlot);
+        _goldDepositMode = GoldDepositModes.Parse(_settings.GoldDepositMode);
+        bool byCommand = _goldDepositMode == GoldDepositMode.Command;
+        ShowGoldMenuConfig((byCommand ? quick : manual).Normalized());
+        _goldDepositHiddenConfig = (byCommand ? manual : quick).Normalized();
+        // Tryb jest już ustawiony, więc Checked nie zamieni konfiguracji drugi raz.
+        if (RbGoldDepositModeCommand != null) RbGoldDepositModeCommand.IsChecked = byCommand;
+        if (RbGoldDepositModeManual != null) RbGoldDepositModeManual.IsChecked = !byCommand;
         RefreshGoldDepositSlotGrid();
         UpdateGoldDepositSettingsUi();
+    }
+
+    private void GoldDepositMode_Checked(object sender, RoutedEventArgs e)
+    {
+        if (_isLoadingUi || sender is not RadioButton { Tag: string id }) return;
+        if (SwitchGoldDepositMode(GoldDepositModes.Parse(id))) GoldDepositSetting_Changed(sender, e);
+    }
+
+    // Zamienia menu pokazywane w panelu z zapamiętanym menu drugiego trybu. false: tryb się nie zmienił.
+    private bool SwitchGoldDepositMode(GoldDepositMode mode)
+    {
+        if (mode == _goldDepositMode) return false;
+        GoldMenuConfig shown = ReadGoldMenuConfig();
+        // Podmiana pól nie ma być traktowana jak edycja użytkownika (TextChanged) — zgłaszamy jedną zmianę trybu.
+        bool wasLoading = _isLoadingUi;
+        _isLoadingUi = true;
+        try { ShowGoldMenuConfig(_goldDepositHiddenConfig); }
+        finally { _isLoadingUi = wasLoading; }
+        _goldDepositHiddenConfig = shown;
+        _goldDepositMode = mode;
+        RefreshGoldDepositSlotGrid();
+        UpdateGoldDepositSettingsUi();
+        return true;
+    }
+
+    // Napisy i pola, które zależą od trybu. Tryb komendy nie zna rodzajów złota — wpłaca serwer.
+    private void UpdateGoldDepositModeUi()
+    {
+        if (RbGoldDepositModeCommand == null) return;
+        bool byCommand = _goldDepositMode == GoldDepositMode.Command;
+        TxtGoldDepositModeHint.Text = byCommand
+            ? "Program wpisuje komendę i raz klika wskazane pole w menu — resztę robi serwer."
+            : "Program otwiera menu i sam przenosi stosy złota z ekwipunku do pola wpłaty.";
+        TxtGoldDepositCommand.ToolTip = byCommand
+            ? "Komenda wpłaty złota z Twojego serwera, zaczynająca się od /. Program wpisze ją na czacie i zatwierdzi Enterem."
+            : "Komenda otwierająca menu, np. /bazar, jeśli tak działa na Twoim serwerze.";
+        TxtGoldDepositWhatLabel.Text = byCommand ? "Złoto w ekwipunku" : "Co wpłacać";
+        ChkGoldDepositBlocks.Visibility = byCommand ? Visibility.Collapsed : Visibility.Visible;
+        ChkGoldDepositIngots.Visibility = byCommand ? Visibility.Collapsed : Visibility.Visible;
+        BorderGoldDepositManualNote.Visibility = byCommand ? Visibility.Collapsed : Visibility.Visible;
+        BorderGoldDepositCommandNote.Visibility = byCommand ? Visibility.Visible : Visibility.Collapsed;
+        TxtGoldDepositSlotTitle.Text = byCommand ? "Pole do kliknięcia w menu" : "Pole wpłaty w menu";
+        TxtGoldDepositSlotHint.Text = byCommand
+            ? "Kliknij pole, które w grze trzeba nacisnąć po wpisaniu komendy. Przyciskami +/− dopasuj liczbę rzędów i kolumn do tego menu."
+            : "Kliknij pole, w którym w grze jest przycisk wpłaty (ikona złota z paczki TXT). Program sam rozpozna położenie menu na ekranie.";
+        TxtGoldDepositTestWarning.Text = byCommand
+            ? "Test wpłaty wpisuje komendę i naprawdę klika wskazane pole — serwer wpłaci złoto z ekwipunku. Po kliknięciu masz 3 s — z włączonym „Kopanie w tle” gra może zostać pod spodem, bez tego przejdź do gry. Kopacz pozostaje wyłączony; STOP (lub bind Kopacza z grą na wierzchu) przerywa test."
+            : "Test wpłaty robi prawdziwą wpłatę wybranych rodzajów złota. Po kliknięciu masz 3 s — z włączonym „Kopanie w tle” gra może zostać pod spodem, bez tego przejdź do gry. Kopacz pozostaje wyłączony; STOP (lub bind Kopacza z grą na wierzchu) przerywa test.";
     }
 
     private void RefreshGoldDepositSlotGrid()
@@ -129,17 +214,28 @@ public partial class MainWindow
 
     private void SaveGoldDepositSettings()
     {
-        GoldDepositOptions options = GoldOptions();
+        bool byCommand = _goldDepositMode == GoldDepositMode.Command;
+        GoldMenuConfig shown = ReadGoldMenuConfig().Normalized();
+        GoldMenuConfig hidden = _goldDepositHiddenConfig.Normalized();
+        GoldMenuConfig manual = byCommand ? hidden : shown;
+        GoldMenuConfig quick = byCommand ? shown : hidden;
         _settings.GoldDepositEnabled = ChkGoldDepositEnabled.IsChecked == true;
-        _settings.GoldDepositCommand = options.Command;
-        _settings.GoldDepositMenuTitle = options.MenuTitle;
-        _settings.GoldDepositRows = Math.Clamp(options.Rows, 1, 6);
-        _settings.GoldDepositColumns = Math.Clamp(options.Columns, 1, 9);
-        _settings.GoldDepositTargetSlot = Math.Clamp(options.TargetSlot, 1, _settings.GoldDepositRows * _settings.GoldDepositColumns);
-        _settings.GoldDepositOpenDelayMs = Math.Clamp(options.OpenDelayMs, 500, 30000);
-        _settings.GoldDepositIngots = options.Ingots;
-        _settings.GoldDepositBlocks = options.Blocks;
-        _settings.GoldDepositIncludeHotbar = options.IncludeHotbar;
+        _settings.GoldDepositMode = GoldDepositModes.ToId(_goldDepositMode);
+        _settings.GoldDepositCommand = manual.Command;
+        _settings.GoldDepositMenuTitle = manual.Title;
+        _settings.GoldDepositRows = manual.Rows;
+        _settings.GoldDepositColumns = manual.Columns;
+        _settings.GoldDepositTargetSlot = manual.Slot;
+        _settings.GoldDepositQuickCommand = quick.Command;
+        _settings.GoldDepositQuickMenuTitle = quick.Title;
+        _settings.GoldDepositQuickRows = quick.Rows;
+        _settings.GoldDepositQuickColumns = quick.Columns;
+        _settings.GoldDepositQuickTargetSlot = quick.Slot;
+        _settings.GoldDepositOpenDelayMs = Math.Clamp(ParseNonNegativeInt(TxtGoldDepositDelay.Text), 500, 30000);
+        // Zaznaczenia z pól, nie z GoldOptions(): w trybie komendy opcje wymuszają oba rodzaje, a wybór trybu ręcznego ma zostać.
+        _settings.GoldDepositIngots = ChkGoldDepositIngots.IsChecked == true;
+        _settings.GoldDepositBlocks = ChkGoldDepositBlocks.IsChecked == true;
+        _settings.GoldDepositIncludeHotbar = ChkGoldDepositHotbar.IsChecked == true;
     }
 
     private void UpdateGoldDepositSettingsUi()
@@ -148,6 +244,7 @@ public partial class MainWindow
         bool enabled = ChkInventoryCleanupEnabled.IsChecked == true && ChkGoldDepositEnabled.IsChecked == true;
         PanelGoldDepositSettings.IsEnabled = enabled;
         SetExpandableSectionState(PanelGoldDepositSettings, ChkGoldDepositEnabled.IsChecked == true);
+        UpdateGoldDepositModeUi();
         if (BorderGoldNeedsAutoEq != null)
             BorderGoldNeedsAutoEq.Visibility = ChkInventoryCleanupEnabled.IsChecked == true ? Visibility.Collapsed : Visibility.Visible;
         UpdateGoldDepositTestButtons();
@@ -469,7 +566,10 @@ public partial class MainWindow
                 var result = await Task.Run(() => ReadGoldObservation(image!, options, null));
                 if (generation != _goldDepositReadTestGeneration || !_goldDepositReadTestActive) return;
                 if (target != _targetGameWindowHandle || GetForegroundWindow() != target) { SetGoldStatus("Test odczytu anulowany — zmieniono okno lub fokus.", true); return; }
-                SetGoldStatus(result.Screen.MenuValid ? $"Menu potwierdzone (wykryto {result.Layout.Rows} rzędów). Pole wpłaty {options.TargetSlot}; wykryto {result.Screen.Items.Count(i => options.IsSelected(i.ItemId))} stosów złota. Niczego nie przeniesiono." : result.Screen.Error, !result.Screen.MenuValid);
+                bool byCommand = options.Mode == GoldDepositMode.Command;
+                SetGoldStatus(result.Screen.MenuValid
+                    ? $"Menu potwierdzone (wykryto {result.Layout.Rows} rzędów). {(byCommand ? "Pole do kliknięcia" : "Pole wpłaty")} {options.TargetSlot}; wykryto {result.Screen.Items.Count(i => options.IsSelected(i.ItemId))} stosów złota. {(byCommand ? "Niczego nie kliknięto." : "Niczego nie przeniesiono.")}"
+                    : result.Screen.Error, !result.Screen.MenuValid);
             }
         }
         catch (Exception ex) { if (generation == _goldDepositReadTestGeneration) SetGoldStatus("Test: " + ex.Message, true); }

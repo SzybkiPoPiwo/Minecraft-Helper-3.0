@@ -14,7 +14,8 @@ $projects = @(
     "PvpIdle",
     "PvpQuickActions",
     "GoldDeposit",
-    "MultiAccount"
+    "MultiAccount",
+    "Announcements"
 )
 
 foreach ($name in $projects) {

@@ -167,6 +167,9 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- Komunikaty od autora: dzwonek pojawia się tu dopiero, gdy jest co pokazać (AnnouncementBell, MainWindow.Announcements.cs) -->
+                    <Border Name="HostAnnouncementBell" DockPanel.Dock="Top"/>
+
                     <Border DockPanel.Dock="Top" Background="{DynamicResource GlassSurface2Brush}" BorderBrush="{DynamicResource GlassStrokeBrush}" BorderThickness="1" CornerRadius="16" Padding="10" Margin="0,0,0,14"
                             Cursor="Hand" ToolTip="Zmień konto" MouseLeftButtonUp="AccountChip_MouseLeftButtonUp">
                         <Grid>
@@ -260,9 +263,12 @@
                                     <TextBlock Text="Wpłata złota" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </RadioButton>
-                            <RadioButton Name="NavEnderchest" Style="{StaticResource GlassNavItem}" Tag="TabEnderchest" Checked="NavItem_Checked" AutomationProperties.Name="Enderchest">
+                            <RadioButton Name="NavEnderchest" Style="{StaticResource GlassNavItem}" Tag="TabEnderchest" Checked="NavItem_Checked" AutomationProperties.Name="Enderchest (beta)">
                                 <DockPanel>
                                     <Viewbox Width="20" Height="20" Margin="0,0,12,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassNavIconPath}" Data="{StaticResource IcoEnderchest}"/></Grid></Viewbox>
+                                    <Border DockPanel.Dock="Right" Style="{StaticResource GlassPill}" Background="{DynamicResource GlassWarnSoftBrush}" Height="20" Margin="6,0,0,0" VerticalAlignment="Center">
+                                        <TextBlock Text="BETA" FontSize="10" Foreground="{DynamicResource GlassWarnBrush}" VerticalAlignment="Center"/>
+                                    </Border>
                                     <TextBlock Text="Enderchest" VerticalAlignment="Center"/>
                                 </DockPanel>
                             </RadioButton>
@@ -950,11 +956,11 @@
                                                     <TextBlock Text="Wpłata złota" FontSize="17" FontWeight="Bold" VerticalAlignment="Center"/>
                                                     <Button Content="?" Style="{DynamicResource InfoButtonStyle}">
                                                         <Button.ToolTip>
-                                                            <ToolTip Style="{DynamicResource InfoToolTipStyle}" Content="Działa po skanie Auto EQ — również gdy używasz tylko CobbleX. Włącz aktualną paczkę TXT. Złoto i nieznane przedmioty są chronione przed wyrzucaniem, także w trybie wszystko poza cobblestone.&#10;&#10;Po czyszczeniu i ewentualnym /cx program otwiera wpisaną komendę, potwierdza tytuł menu, siatkę EQ i ikonę złota w polu wpłaty. Przenosi pełne stosy metodą kliknij źródło → kliknij pole wpłaty. Sprawdza pobranie, pusty kursor i ubytek złota z EQ. Nie odczytuje salda banku.&#10;&#10;Przy odrzuceniu próbuje odłożyć złoto do źródła i zatrzymuje kopanie. Nieznane GUI, poruszenie myszy lub utrata fokusu zatrzymują procedurę. Bind Kopacza nadal działa jako STOP. Po poprawnym zakończeniu zamyka GUI i wznawia poprzedni kanał.&#10;&#10;Najpierw wykonaj test odczytu menu i próbę z małą ilością złota."/>
+                                                            <ToolTip Style="{DynamicResource InfoToolTipStyle}" Content="Działa po skanie Auto EQ — również gdy używasz tylko CobbleX. Włącz aktualną paczkę TXT. Złoto i nieznane przedmioty są chronione przed wyrzucaniem, także w trybie wszystko poza cobblestone.&#10;&#10;Po czyszczeniu i ewentualnym /cx program otwiera wpisaną komendę, potwierdza tytuł menu, siatkę EQ i ikonę złota w polu wpłaty. Przenosi pełne stosy metodą kliknij źródło → kliknij pole wpłaty. Sprawdza pobranie, pusty kursor i ubytek złota z EQ. Nie odczytuje salda banku.&#10;&#10;Przy odrzuceniu próbuje odłożyć złoto do źródła i zatrzymuje kopanie. Nieznane GUI, poruszenie myszy lub utrata fokusu zatrzymują procedurę. Bind Kopacza nadal działa jako STOP. Po poprawnym zakończeniu zamyka GUI i wznawia poprzedni kanał.&#10;&#10;Tryb Komenda: program wpisuje Twoją komendę wpłaty (taką, jaką wpisujesz w grze), potwierdza tytuł menu, które się po niej otwiera, i raz klika wskazane pole — bez przenoszenia stosów. Ikony w klikanym polu nie sprawdza, więc pole wybierz dokładnie. Po kliknięciu sprawdza, czy złota ubyło z EQ.&#10;&#10;Najpierw wykonaj test odczytu menu i próbę z małą ilością złota."/>
                                                         </Button.ToolTip>
                                                     </Button>
                                                 </StackPanel>
-                                                <TextBlock Text="Po czyszczeniu (i ewentualnym CobbleX) otwiera menu, sprawdza jego tytuł i przenosi pełne stacki złota do pola wpłaty." FontSize="12.5" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                <TextBlock Text="Po czyszczeniu (i ewentualnym CobbleX) wpłaca złoto z ekwipunku przez menu na serwerze — komendą albo ręcznym przenoszeniem." FontSize="12.5" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                                             </StackPanel>
                                             <CheckBox Name="ChkGoldDepositEnabled" Grid.Column="2" ToolTip="Wpłacaj złoto po skanie EQ" AutomationProperties.Name="Wpłacaj złoto po skanie EQ" Checked="GoldDepositSetting_Changed" Unchecked="GoldDepositSetting_Changed"/>
                                         </Grid>
@@ -966,7 +972,22 @@
                                                     <ColumnDefinition Width="28"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
-                                                <StackPanel>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+                                                <!-- Sposób wpłaty: każdy tryb pamięta własną komendę, tytuł i pole (GoldDepositMode_Checked). -->
+                                                <StackPanel Grid.ColumnSpan="3" Margin="0,0,0,16">
+                                                    <TextBlock Text="Sposób wpłaty" Style="{DynamicResource GlassLabel}" Margin="0,0,0,8"/>
+                                                    <Border Style="{DynamicResource GlassSegmentHost}" HorizontalAlignment="Left">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <RadioButton Name="RbGoldDepositModeCommand" GroupName="GoldDepositMode" Style="{DynamicResource GlassSegment}" Tag="command" Content="Komenda" AutomationProperties.Name="Wpłata komendą" Checked="GoldDepositMode_Checked"/>
+                                                            <RadioButton Name="RbGoldDepositModeManual" GroupName="GoldDepositMode" Style="{DynamicResource GlassSegment}" Tag="manual" Content="Ręczne przenoszenie" AutomationProperties.Name="Ręczne przenoszenie złota" Checked="GoldDepositMode_Checked"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <TextBlock Name="TxtGoldDepositModeHint" FontSize="12" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Row="1">
                                                     <Grid Margin="0,0,0,12">
                                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                                                         <StackPanel>
@@ -980,22 +1001,25 @@
                                                     </Grid>
                                                     <TextBlock Text="Czekaj na menu (ms)" Style="{DynamicResource GlassLabel}"/>
                                                     <TextBox Name="TxtGoldDepositDelay" Text="1000" Width="120" HorizontalAlignment="Left" TextChanged="GoldDepositSetting_Changed"/>
-                                                    <TextBlock Text="Co wpłacać" Style="{DynamicResource GlassLabel}" Margin="0,14,0,6"/>
+                                                    <TextBlock Name="TxtGoldDepositWhatLabel" Text="Co wpłacać" Style="{DynamicResource GlassLabel}" Margin="0,14,0,6"/>
                                                     <WrapPanel>
                                                         <CheckBox Name="ChkGoldDepositBlocks" Style="{DynamicResource GlassChip}" Content="Bloki złota" IsChecked="True" Checked="GoldDepositSetting_Changed" Unchecked="GoldDepositSetting_Changed"/>
                                                         <CheckBox Name="ChkGoldDepositIngots" Style="{DynamicResource GlassChip}" Content="Sztabki złota" IsChecked="True" Checked="GoldDepositSetting_Changed" Unchecked="GoldDepositSetting_Changed"/>
                                                         <CheckBox Name="ChkGoldDepositHotbar" Style="{DynamicResource GlassChip}" Content="Także z hotbara" IsChecked="True" Checked="GoldDepositSetting_Changed" Unchecked="GoldDepositSetting_Changed"/>
                                                     </WrapPanel>
-                                                    <Border Style="{DynamicResource GlassWarnNote}" Margin="0,6,0,0">
+                                                    <Border Name="BorderGoldDepositManualNote" Style="{DynamicResource GlassWarnNote}" Margin="0,6,0,0">
                                                         <TextBlock TextWrapping="Wrap" FontSize="12" Text="Bloki i sztabki są domyślnie włączone — dopasuj je do serwera. Włączona wpłata chroni złoto przed wyrzuceniem; nieznane przedmioty też zostają w EQ. Testuj najpierw małą ilość, bez nadzoru nie używaj niesprawdzonego profilu."/>
                                                     </Border>
+                                                    <Border Name="BorderGoldDepositCommandNote" Style="{DynamicResource GlassWarnNote}" Margin="0,6,0,0" Visibility="Collapsed">
+                                                        <TextBlock TextWrapping="Wrap" FontSize="12" Text="Program potwierdza tylko tytuł menu, które otwiera komenda — ikony w klikanym polu nie sprawdza, więc wybierz pole dokładnie i najpierw użyj testu odczytu menu. Włączona wpłata chroni złoto przed wyrzuceniem. Testuj najpierw małą ilość, bez nadzoru nie używaj niesprawdzonego profilu."/>
+                                                    </Border>
                                                 </StackPanel>
-                                                <StackPanel Grid.Column="2">
+                                                <StackPanel Grid.Row="1" Grid.Column="2">
                                                     <DockPanel Margin="0,0,0,10">
                                                         <Border DockPanel.Dock="Right" Style="{DynamicResource GlassPill}" Background="{DynamicResource GlassAccentSoftBrush}">
                                                             <TextBlock Name="TxtGoldDepositSelectedSlot" Text="11 (rząd 2, kolumna 2)" Foreground="{DynamicResource GlassAccentInkBrush}" VerticalAlignment="Center"/>
                                                         </Border>
-                                                        <TextBlock Text="Pole wpłaty w menu" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                                        <TextBlock Name="TxtGoldDepositSlotTitle" Text="Pole wpłaty w menu" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
                                                     </DockPanel>
                                                     <Grid HorizontalAlignment="Left">
                                                         <Grid.ColumnDefinitions>
@@ -1017,7 +1041,7 @@
                                                         <Button Name="BtnGoldDepositAddRow" Content="+" Width="36" Height="34" Click="BtnGoldDepositAddRow_Click" ToolTip="Dodaj rząd"/>
                                                         <TextBlock Name="TxtGoldDepositGridSize" Text="Układ: 6 × 9 • liczba pól: 54" FontSize="11.5" Foreground="{DynamicResource GlassInk2Brush}" VerticalAlignment="Center" Margin="14,0,0,0"/>
                                                     </StackPanel>
-                                                    <TextBlock Text="Kliknij pole, w którym w grze jest przycisk wpłaty (ikona złota z paczki TXT). Program sam rozpozna położenie menu na ekranie." FontSize="12" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                                                    <TextBlock Name="TxtGoldDepositSlotHint" Text="Kliknij pole, w którym w grze jest przycisk wpłaty (ikona złota z paczki TXT). Program sam rozpozna położenie menu na ekranie." FontSize="12" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left" Margin="0,10,0,0"/>
                                                 </StackPanel>
                                             </Grid>
                                             <Border Height="1" Background="{DynamicResource GlassLineBrush}" Margin="0,16"/>
@@ -1026,7 +1050,7 @@
                                                 <Button Name="BtnGoldDepositRunTest" Content="Test wpłaty złota" Style="{DynamicResource GlassPrimaryButton}" Margin="0,0,8,6" Click="BtnGoldDepositRunTest_Click"/>
                                                 <Button Name="BtnGoldDepositStopTest" Content="STOP testu" Style="{DynamicResource GlassDangerButton}" Margin="0,0,0,6" IsEnabled="False" Click="BtnGoldDepositStopTest_Click"/>
                                             </WrapPanel>
-                                            <TextBlock Text="Test wpłaty robi prawdziwą wpłatę wybranych rodzajów złota. Po kliknięciu masz 3 s — z włączonym „Kopanie w tle” gra może zostać pod spodem, bez tego przejdź do gry. Kopacz pozostaje wyłączony; STOP (lub bind Kopacza z grą na wierzchu) przerywa test." FontSize="12" Foreground="{DynamicResource GlassWarnBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                            <TextBlock Name="TxtGoldDepositTestWarning" Text="Test wpłaty robi prawdziwą wpłatę wybranych rodzajów złota. Po kliknięciu masz 3 s — z włączonym „Kopanie w tle” gra może zostać pod spodem, bez tego przejdź do gry. Kopacz pozostaje wyłączony; STOP (lub bind Kopacza z grą na wierzchu) przerywa test." FontSize="12" Foreground="{DynamicResource GlassWarnBrush}" TextWrapping="Wrap" Margin="0,2,0,0"/>
                                             <Border Background="{DynamicResource GlassSurfaceBrush}" BorderBrush="{DynamicResource GlassLineBrush}" BorderThickness="1" CornerRadius="12" Padding="12,9" Margin="0,10,0,0">
                                                 <TextBlock Name="TxtGoldDepositStatus" Text="Wyłączone. Ustaw komendę i sprawdź menu przed pierwszą wpłatą." TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource GlassInk2Brush}"/>
                                             </Border>
@@ -1044,9 +1068,20 @@
                                 <StackPanel Margin="4,4,4,18">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="Enderchest" Style="{StaticResource GlassH1}"/>
+                                        <Border Style="{StaticResource GlassPill}" Background="{DynamicResource GlassWarnSoftBrush}" Margin="12,6,0,0" Height="24">
+                                            <TextBlock Text="Beta" Foreground="{DynamicResource GlassWarnBrush}" VerticalAlignment="Center"/>
+                                        </Border>
                                     </StackPanel>
                                     <TextBlock Text="Po skanie Auto EQ przenosi wybrane przedmioty do enderchesta, zamyka go i wraca do kopania." Style="{StaticResource GlassLead}"/>
                                 </StackPanel>
+
+                                <!-- Funkcja jest w budowie: informacja stała, niezależna od ustawień -->
+                                <Border Name="BorderEnderchestBetaNote" Style="{StaticResource GlassWarnNote}" Margin="0,0,0,18">
+                                    <DockPanel>
+                                        <Viewbox Width="15" Height="15" VerticalAlignment="Top" Margin="0,1,8,0"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2.2" Data="{StaticResource IcoInfo}"/></Grid></Viewbox>
+                                        <TextBlock TextWrapping="Wrap" FontSize="12.5" Text="Ta funkcja na razie nie działa — jest w przygotowaniu i będzie dostępna w jednej z kolejnych wersji. Do tego czasu nie polegaj na niej podczas kopania."/>
+                                    </DockPanel>
+                                </Border>
 
                                 <!-- Przenoszenie wykonuje się w cyklu Auto EQ: bez niego nie ruszy -->
                                 <Border Name="BorderEnderchestNeedsAutoEq" Style="{StaticResource GlassWarnNote}" Margin="0,0,0,18" Visibility="Collapsed">
@@ -1989,6 +2024,23 @@
                                         </StackPanel>
                                     </Border>
                                 </Grid>
+
+                                <!-- Komunikaty od autora (dzwonek w pasku bocznym); ustawienie wspólne dla obu programów -->
+                                <Border Name="BorderAnnouncementsCard" Style="{StaticResource GlassCard}" CornerRadius="24" Padding="22,20" Margin="0,0,0,18">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource GlassIconTile}" Width="40" Height="40" CornerRadius="13"><Viewbox Width="20" Height="20"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" Data="{StaticResource IcoBell}"/></Grid></Viewbox></Border>
+                                        <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Komunikaty od autora" Style="{StaticResource CardTitle}" HorizontalAlignment="Left"/>
+                                            <TextBlock Text="Krótkie wiadomości od autora (zmiany na serwerze, ważne ostrzeżenia) pokazuje dzwonek w pasku bocznym. Informacja o nowej wersji programu pojawia się tam zawsze, niezależnie od tego przełącznika. Sprawdzanie przy starcie i co kilka godzin; nic nie jest wysyłane poza numerem wersji." Style="{StaticResource CardSub}"/>
+                                        </StackPanel>
+                                        <CheckBox Name="ChkAnnouncementsEnabled" Grid.Column="2" ToolTip="Pokazuj komunikaty od autora" AutomationProperties.Name="Pokazuj komunikaty od autora" Checked="ChkAnnouncementsEnabled_Changed" Unchecked="ChkAnnouncementsEnabled_Changed"/>
+                                    </Grid>
+                                </Border>
 
                                 <!-- HUD: ustawienia rozwijają się dopiero po włączeniu -->
                                 <Border Name="BorderOverlayHudSection" Style="{StaticResource GlassCard}" CornerRadius="24" Padding="22,20" Margin="0,0,0,18">

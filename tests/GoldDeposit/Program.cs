@@ -16,6 +16,7 @@ internal static class Program
     private static int _checks;
     private static readonly DateTime Start = new(2026, 10, 25, 12, 0, 0, DateTimeKind.Utc);
     private static readonly GoldDepositOptions Options = new("/bazar", "Bazar", 6, 11, 1000, true, true, true);
+    private static readonly GoldDepositOptions QuickOptions = new("/bazar wplac all", "Potwierdzenie", 3, 14, 1000, true, true, true, 9, GoldDepositMode.Command);
     private static string Root = "";
 
     [STAThread]
@@ -26,8 +27,8 @@ internal static class Program
             DirectoryInfo? dir = new(AppContext.BaseDirectory);
             while (dir != null && !File.Exists(Path.Combine(dir.FullName, "MinecraftHelper.slnx"))) dir = dir.Parent;
             Root = dir?.FullName ?? throw new DirectoryNotFoundException("Repository not found.");
-            CheckFlow(); CheckFailures(); CheckClickGuard(); CheckManualTestSession(); CheckDetector(); CheckActionMap(); CheckEnderchestFlow(); CheckHotbarDiscard(); CheckCursorQuantities(); CheckRealChestTexture(); CheckSettings(); CheckResetAndIntegration(); CheckGuiResources();
-            Console.WriteLine($"PASS: {_checks} checks; gold transfer stages, rejection/recovery, real TXT markers, GUI geometry, cancellation and settings. No windows, desktop input, screenshots or user data.");
+            CheckFlow(); CheckFailures(); CheckClickGuard(); CheckManualTestSession(); CheckCommandMode(); CheckDetector(); CheckActionMap(); CheckEnderchestFlow(); CheckHotbarDiscard(); CheckCursorQuantities(); CheckRealChestTexture(); CheckSettings(); CheckResetAndIntegration(); CheckGuiResources();
+            Console.WriteLine($"PASS: {_checks} checks; gold transfer stages, command mode, rejection/recovery, real TXT markers, GUI geometry, cancellation and settings. No windows, desktop input, screenshots or user data.");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -181,6 +182,75 @@ internal static class Program
         Check(new GoldDepositManualTestSession(Options, IntPtr.Zero, Start).Tick(Start, IntPtr.Zero, true, false, false) == GoldDepositTestDecision.Cancelled, "missing target window never arms input");
     }
 
+    // Tryb komendy: komenda, jedno kliknięcie wskazanego pola i sprawdzenie, czy złota ubyło z EQ.
+    private static void CheckCommandMode()
+    {
+        Check(QuickOptions.Validate() == "" && (QuickOptions with { Ingots = false, Blocks = false }).Validate() == "", "command mode needs no gold type: the server decides what it deposits");
+        Check((Options with { Ingots = false, Blocks = false }).Validate().Length > 0, "manual mode still requires at least one gold type");
+        Check((QuickOptions with { MenuTitle = "" }).Validate().Contains("tytuł") && (QuickOptions with { Command = "bazar wplac all" }).Validate().Length > 0
+            && (QuickOptions with { TargetSlot = 28 }).Validate().Length > 0, "command mode still rejects an empty title, a command without slash and a slot outside the grid");
+        Check(QuickOptions.ValidateMenuIdentity("Potwierdzenie wpłaty (1/2)", null) == "" && QuickOptions.ValidateMenuIdentity("Potwierdzenie", "iron_ingot") == "",
+            "command mode confirms the title but does not require a gold icon in the clicked slot");
+        string wrongTitle = QuickOptions.ValidateMenuIdentity("Sklep", "gold_ingot");
+        Check(wrongTitle.Contains("tytułu menu") && !wrongTitle.Contains("Ikony"), "a different menu title still blocks the click");
+
+        var ingots = new DetectedInventoryItem(0, "gold_ingot", 64);
+        var blocks = new DetectedInventoryItem(20, "gold_block", 3);
+        GoldDepositObservation before = Screen(new[] { ingots, blocks });
+        GoldDepositObservation empty = Screen(Array.Empty<DetectedInventoryItem>());
+        var gone = new GoldDepositObservation(false, false, true, null, Array.Empty<DetectedInventoryItem>());
+
+        // Wspólna część: komenda i oczekiwanie na menu, potem jedno kliknięcie bez pobierania stosów.
+        GoldDepositFlow Clicked()
+        {
+            GoldDepositFlow flow = Open(QuickOptions);
+            Check(flow.Options.Command == "/bazar wplac all", "the typed text is the configured deposit command");
+            GoldDepositStep click = flow.Tick(flow.NextAt, before);
+            Check(click.Action == GoldDepositAction.Deposit && click.SourceSlot == -1, "command mode clicks the chosen slot once without picking up a stack");
+            flow.ClickExecuted(flow.NextAt);
+            return flow;
+        }
+
+        GoldDepositFlow done = Clicked();
+        DateTime clicked = done.NextAt.AddSeconds(1);
+        done.ClickExecuted(clicked);
+        Check(done.NextAt == clicked.AddMilliseconds(600), "the server wait starts after the actual click, including slow OCR validation");
+        Check(done.Tick(clicked.AddMilliseconds(599), empty).Action == GoldDepositAction.None, "EQ is not judged before the server had time to react");
+        Check(done.Tick(done.NextAt, empty).Action == GoldDepositAction.CloseMenu && done.ConfirmedItems == 67 && done.ConfirmedStacks == 2, "a drop of the gold count confirms the deposit");
+        GoldDepositStep complete = done.Tick(done.NextAt, gone);
+        Check(complete.Action == GoldDepositAction.Complete && done.Message.Contains("67 szt.") && !done.Message.Contains("zostało"), "the deposit completes only after the menu is closed");
+
+        GoldDepositFlow partial = Clicked();
+        Check(partial.Tick(partial.NextAt, Screen(new[] { new DetectedInventoryItem(3, "gold_ingot", 5) })).Action == GoldDepositAction.CloseMenu
+            && partial.ConfirmedItems == 62 && partial.ConfirmedStacks == 1, "a partial deposit reports what really left EQ");
+        partial.Tick(partial.NextAt, gone);
+        Check(partial.Message.Contains("zostało jeszcze 5"), "the summary says how much gold stayed in EQ");
+
+        GoldDepositFlow selfClosing = Clicked();
+        Check(selfClosing.Tick(selfClosing.NextAt, gone).Action == GoldDepositAction.Complete && selfClosing.ConfirmedItems == 0
+            && selfClosing.Message.Contains("zamknęło się"), "a menu closed by the server completes without claiming a confirmed amount");
+
+        GoldDepositFlow unchanged = Clicked();
+        for (int i = 0; i < 3; i++)
+            Check(unchanged.Tick(unchanged.NextAt, before).Action == GoldDepositAction.None, "server latency is tolerated for a few observations");
+        Check(unchanged.Tick(unchanged.NextAt, before).Action == GoldDepositAction.Stop && unchanged.ConfirmedItems == 0, "gold that never leaves EQ stops mining instead of looping");
+
+        Check(Clicked().Tick(Start.AddMinutes(4), empty).Action == GoldDepositAction.Stop, "the global deadline also bounds command mode");
+        GoldDepositFlow other = Clicked();
+        Check(other.Tick(other.NextAt, Screen(Array.Empty<DetectedInventoryItem>(), valid: false)).Action == GoldDepositAction.Stop, "another menu after the click fails closed");
+        GoldDepositFlow carried = Clicked();
+        Check(carried.Tick(carried.NextAt, Screen(Array.Empty<DetectedInventoryItem>(), ingots, empty: false)).Action == GoldDepositAction.Stop, "an item left on the cursor after the click fails closed");
+
+        GoldDepositFlow noGold = Open(QuickOptions);
+        Check(noGold.Tick(noGold.NextAt, empty).Action == GoldDepositAction.CloseMenu, "without gold in EQ the menu is only closed and nothing is clicked");
+        GoldDepositFlow busy = Open(QuickOptions);
+        Check(busy.Tick(busy.NextAt, Screen(new[] { ingots }, ingots, false)).Action == GoldDepositAction.Stop, "an item on the cursor blocks the click");
+        GoldDepositFlow wrong = Open(QuickOptions);
+        GoldDepositStep wrongStep = default;
+        for (int i = 0; i < 3 && !wrong.Finished; i++) wrongStep = wrong.Tick(wrong.NextAt, Screen(new[] { ingots }, valid: false));
+        Check(wrongStep.Action == GoldDepositAction.Stop, "a menu that was not confirmed never receives the click");
+    }
+
     private static ZipArchive? _pack;
 
     // Tekstury z paczki, którą buduje sam Kopacz (MarkerResourcePack) z 1.8.8.jar gry —
@@ -324,6 +394,10 @@ internal static class Program
 
         Check(tiles.Values.All(tile => tile.Enabled && tile.Warning.Length == 0), "with everything configured no tile is dimmed or warned");
         Check(tiles["open"].Value == "co 120 s" && tiles["ender"].Value == "/ec" && tiles["start"].Value == "bind: F6", "tiles show the account's real settings");
+
+        var byCommand = ActionMapCatalog.Build(all with { GoldByCommand = true }).ToDictionary(tile => tile.Id);
+        Check(byCommand["gold"].Description.Contains("raz klika") && tiles["gold"].Description.Contains("przenosi") && !tiles["gold"].Description.Contains("raz klika"),
+            "the map describes the chosen way of depositing");
 
         var noEq = ActionMapCatalog.Build(all with { AutoEq = false }).ToDictionary(tile => tile.Id);
         Check(new[] { "open", "scan", "drop", "cobble", "ender", "gold", "food" }.All(id => !noEq[id].Enabled) && noEq["back"].Enabled, "disabling Auto EQ dims the whole cycle");
@@ -503,7 +577,9 @@ internal static class Program
                 "actual menu height is detected independently from the slot picker height");
             Check(!InventoryMarkerDetector.TryDetectChestMenu(frame, 9, rows + 1, out _), "a selected field below the detected menu is rejected");
             Type optionType = typeof(ProductionWindow).Assembly.GetType("MinecraftHelper.Services.GoldDepositOptions")!;
-            object configured = Activator.CreateInstance(optionType, new object[] { "/bazar", "Bazar", 5, 11, 1000, true, true, true, 9 })!;
+            // Refleksja nie podstawia wartości domyślnych, więc tryb (ostatni parametr) trzeba podać wprost.
+            object manualMode = Enum.Parse(optionType.GetConstructors()[0].GetParameters()[^1].ParameterType, "Manual");
+            object configured = Activator.CreateInstance(optionType, new object[] { "/bazar", "Bazar", 5, 11, 1000, true, true, true, 9, manualMode })!;
             object?[] arguments = { frame, configured, null };
             bool hostFound = (bool)typeof(ProductionWindow).GetMethod("TryDetectGoldMenuLayout", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, arguments)!;
             Check(hostFound && (int)arguments[2]!.GetType().GetProperty("Rows")!.GetValue(arguments[2])! == rows,
@@ -534,6 +610,21 @@ internal static class Program
         Check(saved.GoldDepositEnabled && saved.GoldDepositCommand == "/bank" && saved.GoldDepositColumns == 5 && saved.GoldDepositTargetSlot == 11 && !saved.GoldDepositIncludeHotbar, "gold options round-trip without user files");
         AppSettings legacy = JsonSerializer.Deserialize<AppSettings>("{\"GoldDepositRows\":6,\"GoldDepositTargetSlot\":11}")!;
         Check(legacy.GoldDepositColumns == 9 && legacy.GoldDepositTargetSlot == 11, "settings from before width selection retain their original bank slot");
+
+        Check(settings.GoldDepositMode == "manual" && new AppSettings().GoldDepositMode == "manual", "fresh settings keep manual transfers");
+        var fresh = new AppSettings();
+        Check(fresh.GoldDepositQuickCommand == "" && fresh.GoldDepositQuickMenuTitle == "" && fresh.GoldDepositQuickRows == 3
+            && fresh.GoldDepositQuickColumns == 9 && fresh.GoldDepositQuickTargetSlot == 1, "command mode has no built-in server command or title, so it cannot run before the user sets it up");
+        Check((QuickOptions with { Command = fresh.GoldDepositQuickCommand }).Validate().Contains("komendę")
+            && (QuickOptions with { MenuTitle = fresh.GoldDepositQuickMenuTitle }).Validate().Contains("tytuł"), "validation rejects the empty default command and title");
+        fresh.GoldDepositMode = "command"; fresh.GoldDepositQuickMenuTitle = "Potwierdzenie"; fresh.GoldDepositQuickRows = 3; fresh.GoldDepositQuickTargetSlot = 14;
+        AppSettings quick = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(fresh))!;
+        Check(quick.GoldDepositMode == "command" && quick.GoldDepositQuickMenuTitle == "Potwierdzenie" && quick.GoldDepositQuickTargetSlot == 14
+            && quick.GoldDepositMenuTitle == "Bazar" && quick.GoldDepositTargetSlot == 11, "command mode settings round-trip next to the unchanged manual menu");
+        Check(legacy.GoldDepositMode == "manual" && legacy.GoldDepositQuickCommand == "","settings from before the mode choice stay on manual transfers");
+        Check(GoldDepositModes.Parse("command") == GoldDepositMode.Command && GoldDepositModes.Parse(" Command ") == GoldDepositMode.Command
+            && GoldDepositModes.Parse("manual") == GoldDepositMode.Manual && GoldDepositModes.Parse(null) == GoldDepositMode.Manual && GoldDepositModes.Parse("xyz") == GoldDepositMode.Manual
+            && GoldDepositModes.ToId(GoldDepositMode.Command) == "command" && GoldDepositModes.ToId(GoldDepositMode.Manual) == "manual", "unknown mode names fall back to manual transfers");
     }
 
     private static void CheckResetAndIntegration()
@@ -613,7 +704,9 @@ internal static class Program
         type.GetField("_isLoadingUi", flags)!.SetValue(host, true);
         FieldInfo sectionStates = type.GetField("_expandableSectionStates", flags)!; // okno bez konstruktora nie ma inicjalizatorów pól
         sectionStates.SetValue(host, Activator.CreateInstance(sectionStates.FieldType));
-        foreach (string name in new[] { "ChkGoldDepositEnabled", "PanelGoldDepositSettings", "PanelGoldDepositConfiguration", "TxtGoldDepositCommand", "TxtGoldDepositTitle", "TxtGoldDepositDelay", "ChkGoldDepositIngots", "ChkGoldDepositBlocks", "ChkGoldDepositHotbar", "BorderGoldDepositSlots", "PanelGoldDepositSlots", "TxtGoldDepositSelectedSlot", "TxtGoldDepositGridSize", "BtnGoldDepositAddRow", "BtnGoldDepositRemoveRow", "BtnGoldDepositAddColumn", "BtnGoldDepositRemoveColumn", "BtnGoldDepositReadTest", "BtnGoldDepositRunTest", "BtnGoldDepositStopTest", "TxtGoldDepositStatus" })
+        foreach (string name in new[] { "ChkGoldDepositEnabled", "PanelGoldDepositSettings", "PanelGoldDepositConfiguration", "TxtGoldDepositCommand", "TxtGoldDepositTitle", "TxtGoldDepositDelay", "ChkGoldDepositIngots", "ChkGoldDepositBlocks", "ChkGoldDepositHotbar", "BorderGoldDepositSlots", "PanelGoldDepositSlots", "TxtGoldDepositSelectedSlot", "TxtGoldDepositGridSize", "BtnGoldDepositAddRow", "BtnGoldDepositRemoveRow", "BtnGoldDepositAddColumn", "BtnGoldDepositRemoveColumn", "BtnGoldDepositReadTest", "BtnGoldDepositRunTest", "BtnGoldDepositStopTest", "TxtGoldDepositStatus",
+            "RbGoldDepositModeCommand", "RbGoldDepositModeManual", "TxtGoldDepositModeHint", "TxtGoldDepositWhatLabel", "BorderGoldDepositManualNote", "BorderGoldDepositCommandNote",
+            "TxtGoldDepositSlotTitle", "TxtGoldDepositSlotHint", "TxtGoldDepositTestWarning" })
             type.GetField(name, flags)!.SetValue(host, view.FindName(name));
         type.GetField("ChkInventoryCleanupEnabled", flags)!.SetValue(host, new System.Windows.Controls.CheckBox { IsChecked = true });
         FieldInfo modelField = type.GetField("_settings", flags)!;
@@ -682,6 +775,55 @@ internal static class Program
         type.GetMethod("CancelGoldDepositReadTest", flags)!.Invoke(host, null);
         Check(!(bool)type.GetField("_goldDepositReadTestActive", flags)!.GetValue(host)! && (int)type.GetField("_goldDepositReadTestGeneration", flags)!.GetValue(host)! == 11,
             "STOP invalidates late read-only results so they cannot overwrite a newer real-flow test");
+
+        // Tryb komendy: panel pokazuje własne menu, a powrót do ręcznego przenoszenia przywraca jego ustawienia.
+        PropertyInfo Prop(string name) => model.GetType().GetProperty(name)!;
+        Prop("GoldDepositMode").SetValue(model, "manual");
+        Prop("GoldDepositCommand").SetValue(model, "/bazar"); Prop("GoldDepositMenuTitle").SetValue(model, "Bazar");
+        Prop("GoldDepositRows").SetValue(model, 6); Prop("GoldDepositColumns").SetValue(model, 9); Prop("GoldDepositTargetSlot").SetValue(model, 11);
+        Prop("GoldDepositQuickCommand").SetValue(model, "/testowa wplata"); Prop("GoldDepositQuickMenuTitle").SetValue(model, "Potwierdzenie");
+        Prop("GoldDepositQuickRows").SetValue(model, 3); Prop("GoldDepositQuickTargetSlot").SetValue(model, 14);
+        type.GetMethod("LoadGoldDepositSettings", flags)!.Invoke(host, null);
+        var title = (System.Windows.Controls.TextBox)view.FindName("TxtGoldDepositTitle");
+        var command = (System.Windows.Controls.TextBox)view.FindName("TxtGoldDepositCommand");
+        var ingotsChip = (System.Windows.Controls.CheckBox)view.FindName("ChkGoldDepositIngots");
+        var blocksChip = (System.Windows.Controls.CheckBox)view.FindName("ChkGoldDepositBlocks");
+        var manualNote = (System.Windows.FrameworkElement)view.FindName("BorderGoldDepositManualNote");
+        var commandNote = (System.Windows.FrameworkElement)view.FindName("BorderGoldDepositCommandNote");
+        var modeCommand = (System.Windows.Controls.RadioButton)view.FindName("RbGoldDepositModeCommand");
+        var modeManual = (System.Windows.Controls.RadioButton)view.FindName("RbGoldDepositModeManual");
+        ingotsChip.IsChecked = false;
+        Check(command.Text == "/bazar" && title.Text == "Bazar" && slots.Rows == 6 && modeManual.IsChecked == true && modeCommand.IsChecked != true
+            && manualNote.Visibility == System.Windows.Visibility.Visible && commandNote.Visibility == System.Windows.Visibility.Collapsed, "a saved manual mode shows its own menu and note");
+        MethodInfo switchMode = type.GetMethod("SwitchGoldDepositMode", flags)!;
+        object commandMode = Enum.Parse(switchMode.GetParameters()[0].ParameterType, "Command");
+        object manualMode = Enum.Parse(switchMode.GetParameters()[0].ParameterType, "Manual");
+        Check(!(bool)switchMode.Invoke(host, new[] { manualMode })!, "choosing the current mode again changes nothing");
+        Check((bool)switchMode.Invoke(host, new[] { commandMode })!, "choosing the other mode switches it");
+        Check(command.Text == "/testowa wplata" && title.Text == "Potwierdzenie" && slots.Rows == 3 && slots.Children.Count == 27 && selected.Text == "14 (rząd 2, kolumna 5)",
+            "command mode shows its own command, title, grid and slot");
+        options = type.GetMethod("GoldOptions", flags)!.Invoke(host, null)!;
+        Check(options.GetType().GetProperty("Mode")!.GetValue(options)!.ToString() == "Command" && (bool)options.GetType().GetProperty("Ingots")!.GetValue(options)!
+            && (bool)options.GetType().GetProperty("Blocks")!.GetValue(options)!, "command mode does not narrow the scan to the chip selection");
+        Check(blocksChip.Visibility == System.Windows.Visibility.Collapsed && ingotsChip.Visibility == System.Windows.Visibility.Collapsed
+            && commandNote.Visibility == System.Windows.Visibility.Visible && manualNote.Visibility == System.Windows.Visibility.Collapsed
+            && ((System.Windows.Controls.TextBlock)view.FindName("TxtGoldDepositSlotTitle")).Text.Contains("kliknięcia"), "command mode hides the gold type chips and explains what it checks");
+        type.GetMethod("SaveGoldDepositSettings", flags)!.Invoke(host, null);
+        Check((string)Prop("GoldDepositMode").GetValue(model)! == "command" && (string)Prop("GoldDepositQuickMenuTitle").GetValue(model)! == "Potwierdzenie"
+            && (int)Prop("GoldDepositQuickTargetSlot").GetValue(model)! == 14 && (string)Prop("GoldDepositMenuTitle").GetValue(model)! == "Bazar"
+            && (int)Prop("GoldDepositTargetSlot").GetValue(model)! == 11 && !(bool)Prop("GoldDepositIngots").GetValue(model)!,
+            "saving in command mode keeps the manual menu and the manual gold types");
+        Check((bool)switchMode.Invoke(host, new[] { manualMode })!, "switching back to manual works");
+        Check(command.Text == "/bazar" && title.Text == "Bazar" && slots.Rows == 6 && selected.Text == "11 (rząd 2, kolumna 2)"
+            && blocksChip.Visibility == System.Windows.Visibility.Visible && manualNote.Visibility == System.Windows.Visibility.Visible, "returning to manual restores its menu and chips");
+        options = type.GetMethod("GoldOptions", flags)!.Invoke(host, null)!;
+        Check(options.GetType().GetProperty("Mode")!.GetValue(options)!.ToString() == "Manual" && !(bool)options.GetType().GetProperty("Ingots")!.GetValue(options)!, "manual mode again honours the chip selection");
+        Prop("GoldDepositMode").SetValue(model, "command");
+        type.GetMethod("LoadGoldDepositSettings", flags)!.Invoke(host, null);
+        Check(command.Text == "/testowa wplata" && modeCommand.IsChecked == true && modeManual.IsChecked != true && slots.Rows == 3, "a saved command mode is restored when the settings load");
+        Prop("GoldDepositMode").SetValue(model, "manual");
+        type.GetMethod("LoadGoldDepositSettings", flags)!.Invoke(host, null);
+
         foreach (string miner in new[] { "533", "633" })
         {
             FieldInfo owner = type.GetField("_inventoryCleanupOwner", flags)!;

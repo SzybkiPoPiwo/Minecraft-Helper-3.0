@@ -2,14 +2,14 @@
   <img src="docs/images/minecraft-helper-banner.png" alt="Minecraft Helper — automatyzacja dla Minecraft 1.8.8" width="100%">
 </p>
 
-<h1 align="center">Minecraft Helper 3.0.3</h1>
+<h1 align="center">Minecraft Helper 3.0.4</h1>
 
 <p align="center">
   Dwie niezależne aplikacje dla Minecraft 1.8.8: lekki <strong>Auto Clicker</strong> do PVP i <strong>Kopacz</strong> do kopania z Auto EQ, ochroną, wieloma kontami i botem Discord.
 </p>
 
 <p align="center">
-  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0.3</strong> · <a href="LICENSE"><strong>GPL-3.0</strong></a>
+  <strong>Windows 10/11</strong> · <strong>Minecraft 1.8.8 / BlazingPack</strong> · <strong>bez Forge i modów</strong> · <strong>wersja 3.0.4</strong> · <a href="LICENSE"><strong>GPL-3.0</strong></a>
 </p>
 
 <p align="center">
@@ -47,7 +47,7 @@ Aplikacje instalujesz razem albo osobno; każda ma własne ustawienia, ikonę i 
 4. **Włącz paczkę zasobów** (tylko Kopacz) — Kopacz sam ją tworzy; w grze włącz `MinecraftHelper AutoEQ + CobbleX (1.8.8)` na samej górze listy i ustaw `GUI Scale: Large`. Szczegóły: [paczka zasobów](#paczka-zasobów).
 5. **Ustaw bindy i sprawdź w bezpiecznym miejscu** — każdy moduł uruchamiasz zapisanym bindem; podpowiedzi są pod przyciskami `?`.
 
-Przy pierwszym uruchomieniu oba programy prowadzą przez samouczek w trybie ćwiczeń ([Kopacz](#samouczek), 42 kroki; Auto Clicker, 15 kroków), a Auto Clicker po każdej aktualizacji pokazuje okno „Co nowego”. Przy starcie obie sprawdzają najnowsze wydanie na GitHubie i tylko informują o nowej wersji — niczego nie pobierają same.
+Przy pierwszym uruchomieniu oba programy prowadzą przez samouczek w trybie ćwiczeń ([Kopacz](#samouczek), 45 kroków; Auto Clicker, 15 kroków), a Auto Clicker po każdej aktualizacji pokazuje okno „Co nowego”. Przy starcie i co kilka godzin obie sprawdzają najnowsze wydanie na GitHubie i tylko informują o nowej wersji w dzwonku **Komunikaty** — niczego nie pobierają same. Ten sam dzwonek pokazuje krótkie wiadomości od autora ([jak działają](docs/ANNOUNCEMENTS.md)); wyłączysz je w Ustawieniach, a informacja o nowej wersji zostaje zawsze.
 
 ## Auto Clicker
 
@@ -130,7 +130,7 @@ Okno z paskiem bocznym: **Konta** (z przyciskiem **Logi**) dotyczą wszystkich k
   <sub>Samouczek w trybie ćwiczeń: podświetlona sekcja i opis obok niej.</sub>
 </p>
 
-Przy pierwszym uruchomieniu Kopacz zamiast programu otwiera **samouczek w trybie ćwiczeń** — makietę z prawdziwych zrzutów, w której klikasz podświetlone miejsca albo **Dalej**. Prowadzi po każdej sekcji wszystkich zakładek (42 kroki); kliknięcia niczego nie zmieniają, nie szukają gry i nie łączą bota. Po **Zakończ** albo **Pomiń** otwiera się prawdziwy Kopacz.
+Przy pierwszym uruchomieniu Kopacz zamiast programu otwiera **samouczek w trybie ćwiczeń** — makietę z prawdziwych zrzutów, w której klikasz podświetlone miejsca albo **Dalej**. Prowadzi po każdej sekcji wszystkich zakładek (45 kroków); kliknięcia niczego nie zmieniają, nie szukają gry i nie łączą bota. Po **Zakończ** albo **Pomiń** otwiera się prawdziwy Kopacz.
 
 - **Samouczek** obok tytułu każdej zakładki pokazuje tylko jej sekcje.
 - **Ustawienia → Pokaż samouczek** powtarza całość.
@@ -158,7 +158,7 @@ Każdy kanał ma bind start/stop. Gdy włączone są oba, przycisk START urucham
 Po skanie, w tej kolejności:
 
 1. **CobbleX** — po zebraniu ustawionej liczby pełnych stacków cobblestone (domyślnie 9) program wysyła komendę serwera (domyślnie `/cx`), opcjonalnie 3 razy.
-2. **Wpłata złota** — wpisuje komendę banku lub bazaru, rozpoznaje menu po tytule i przenosi bloki i sztabki złota do wybranego pola. Przy odrzuceniu odkłada stos i zatrzymuje kopanie. [Pierwsza próba krok po kroku](tests/GoldDeposit/README.md).
+2. **Wpłata złota** — w zakładce **Wpłata złota** wybierasz sposób wpłaty. **Ręczne przenoszenie** wpisuje komendę otwierającą menu banku lub bazaru, rozpoznaje menu po tytule i przenosi bloki i sztabki złota do wybranego pola; przy odrzuceniu odkłada stos i zatrzymuje kopanie. **Komenda** wpisuje komendę wpłaty z Twojego serwera i raz klika wskazane pole w menu — resztę robi serwer. Każdy sposób pamięta własną komendę, tytuł i pole. [Pierwsza próba krok po kroku](tests/GoldDeposit/README.md).
 3. **Jedzenie** — slot 2, 4 s PPM, powrót na slot 1.
 4. Wznowienie kopania.
 
@@ -323,12 +323,12 @@ Przycisk `X` w obu aplikacjach nie kończy programu — chowa okno do zasobnika 
 
 ## Instalacja
 
-Pobierz `MinecraftHelper-Setup-3.0.3.exe` z [wydań na GitHubie](https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0/releases) i uruchom. Na ekranie składników wybierz **Auto Clicker**, **Kopacza** albo oba. Instalator działa dla bieżącego użytkownika, nie wymaga osobnej instalacji .NET i dodaje zwykły deinstalator Windows. Starszą, połączoną wersję programu wykrywa sam i prowadzi przez migrację; ustawienia zostają zachowane. Na ostatniej stronie zdecydujesz, czy Kopacz ma przy pierwszym uruchomieniu pokazać samouczek.
+Pobierz `MinecraftHelper-Setup-3.0.4.exe` z [wydań na GitHubie](https://github.com/SzybkiPoPiwo/Minecraft-Helper-3.0/releases) i uruchom. Na ekranie składników wybierz **Auto Clicker**, **Kopacza** albo oba. Instalator działa dla bieżącego użytkownika, nie wymaga osobnej instalacji .NET i dodaje zwykły deinstalator Windows. Starszą, połączoną wersję programu wykrywa sam i prowadzi przez migrację; ustawienia zostają zachowane. Na ostatniej stronie zdecydujesz, czy Kopacz ma przy pierwszym uruchomieniu pokazać samouczek.
 
 Przed aktualizacją zamknij obie aplikacje z menu zasobnika. Sumę SHA-256 oficjalnego pliku znajdziesz w opisie wydania; dla pliku pobranego sprawdzisz ją poleceniem:
 
 ```powershell
-Get-FileHash .\MinecraftHelper-Setup-3.0.3.exe -Algorithm SHA256
+Get-FileHash .\MinecraftHelper-Setup-3.0.4.exe -Algorithm SHA256
 ```
 
 ### Windows SmartScreen i Smart App Control
@@ -357,7 +357,7 @@ dotnet run --project ".\MinecraftHelper\MinecraftHelper.csproj" -c Release      
 Instalator:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 3.0.3 -Rid win-x64
+.\scripts\build-installer.ps1 -Version 3.0.4 -Rid win-x64
 ```
 
 Testy regresji (bez uruchamiania gry; test `GoldDeposit` korzysta z zainstalowanej gry 1.8.8):
@@ -367,6 +367,27 @@ Testy regresji (bez uruchamiania gry; test `GoldDeposit` korzysta z zainstalowan
 ```
 
 Generator paczki zasobów jest w [MarkerResourcePack.cs](MinecraftHelper/Services/MarkerResourcePack.cs). Po zmianie znaczników podnieś `GeneratorVersion` — Kopacz odbuduje paczkę u użytkowników.
+
+## Zmiany w wersji 3.0.4
+
+**Wspólne**
+
+- Dzwonek **Komunikaty** (Kopacz: u góry paska bocznego, Auto Clicker: w nagłówku okna) pokazuje nową wersję programu z listą zmian i linkiem do pobrania oraz krótkie wiadomości od autora. Zastąpił okno aktualizacji — nic już nie wyskakuje ani nie blokuje programu, a „Pomiń tę wersję” nie jest potrzebne.
+- Nowy komunikat wyskakuje na 3 s w prawym dolnym rogu ekranu, także gdy program jest w tle, ale nie przejmuje fokusu, więc nie wyrywa gry z pełnego ekranu. Lista w dzwonku: na górze nowa wersja, niżej wiadomości od najnowszej.
+- Przełącznik **Komunikaty od autora** w Ustawieniach wyłącza tylko wiadomości od autora; informacja o nowej wersji zostaje zawsze. Format i zasady: [docs/ANNOUNCEMENTS.md](docs/ANNOUNCEMENTS.md).
+- Instalator: bez białych błysków przy przechodzeniu między stronami i podczas kopiowania plików, a strona przygotowania nie wisi już kilka sekund.
+- Samouczki w obu programach pokazują nowy wygląd Ustawień (Kopacz: 45 kroków).
+
+**Kopacz**
+
+- **Wpłata złota** ma dwa sposoby: **Ręczne przenoszenie** (jak dotąd) albo **Komenda** — wpisuje komendę wpłaty z serwera i raz klika wskazane pole w menu. Każdy sposób pamięta własną komendę, tytuł i pole; stare ustawienia zostają przy ręcznym przenoszeniu.
+- **Enderchest** ma plakietkę BETA i ostrzeżenie: funkcja jest w przygotowaniu i na razie nie działa, więc nie polegaj na niej podczas kopania.
+- Mapa działania opisuje wybrany sposób wpłaty złota.
+
+**Auto Clicker**
+
+- Lista procesów Minecrafta w Ustawieniach odświeża się przy każdym otwarciu — gra uruchomiona po Auto Clickerze pojawia się od razu, bez klikania „Odśwież”.
+- Przycisk **Sprawdź** w Ustawieniach → Aktualizacje pokazuje wynik w dzwonku, zamiast w osobnym oknie.
 
 ## Zmiany w wersji 3.0.3
 

@@ -3,7 +3,7 @@
 #define MinerExeName "MinecraftHelper.Miner.exe"
 
 #ifndef AppVersion
-  #define AppVersion "3.0.3"
+  #define AppVersion "3.0.4"
 #endif
 
 #ifndef AutoClickerPublishDir
@@ -35,6 +35,10 @@ UninstallDisplayIcon={app}\MinecraftHelper.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 PrivilegesRequired=lowest
+; Strona „Przygotowanie do instalacji” sprawdza (Restart Manager), czy któryś program jest otwarty.
+; Domyślnie sprawdza każdy plik *.exe, *.dll i *.chm — u nas to ponad 900 bibliotek, a okno wisi
+; wtedy kilka sekund na pustej stronie. Do wykrycia otwartego programu wystarczą jego pliki .exe.
+CloseApplicationsFilter=*.exe
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
@@ -151,6 +155,9 @@ const
   DWMWA_BORDER_COLOR = 34;
   DWMWA_CAPTION_COLOR = 35;
   DWMWA_TEXT_COLOR = 36;
+  GWL_EXSTYLE = -20;
+  { Okno i wszystkie kontrolki rysowane najpierw w pamięci, potem pokazywane naraz. }
+  WS_EX_COMPOSITED = $02000000;
 
 var
   WelcomeBack, InnerBack, ComponentsBack, ReadyBack, LicenseBack, InstallingBack: TBitmapImage;
@@ -174,6 +181,8 @@ var
   ButtonRowTop, ButtonRowRight: Integer;
   NativeButtonsHidden: Boolean;
   SyncTimerId: LongWord;
+  CurrentBack: TBitmapImage;
+  FileNameText: TNewStaticText;
 
 function DwmSetWindowAttribute(Wnd: HWND; Attribute: Cardinal; var Value: Cardinal; Size: Cardinal): Integer;
   external 'DwmSetWindowAttribute@dwmapi.dll stdcall delayload';
@@ -181,6 +190,10 @@ function SetTimer(Wnd: LongWord; IdEvent, Elapse: LongWord; TimerFunc: LongWord)
   external 'SetTimer@user32.dll stdcall';
 function KillTimer(Wnd: LongWord; IdEvent: LongWord): Boolean;
   external 'KillTimer@user32.dll stdcall';
+function GetWindowLong(Wnd: HWND; Index: Integer): LongInt;
+  external 'GetWindowLongW@user32.dll stdcall';
+function SetWindowLong(Wnd: HWND; Index: Integer; NewLong: LongInt): LongInt;
+  external 'SetWindowLongW@user32.dll stdcall';
 
 { --- Skala i położenie ------------------------------------------------------------------ }
 
@@ -268,9 +281,15 @@ begin
     ExtractTemporaryFile(FileName);
 end;
 
+{ TBitmapImage domyślnie wypełnia swój prostokąt kolorem tła i dopiero na nim rysuje obrazek.
+  Rysowanie idzie prosto na ekran (bez podwójnego buforowania), więc przy każdym przemalowaniu
+  (zmiana rozmiaru paska, podmiana obrazka przycisku) ten kolor mignąłby jako biały błysk.
+  clNone = bez wypełnienia: obrazek jest rysowany od razu na tle strony. Wszystkie nasze PNG są
+  nieprzezroczyste i mają wtopiony wycinek tła, więc wygląd się nie zmienia. }
 function LoadImage(const FileName: String; Parent: TWinControl): TBitmapImage;
 begin
   Result := TBitmapImage.Create(WizardForm);
+  Result.BackColor := clNone;
   Result.Parent := Parent;
   Result.PngImage.LoadFromFile(TempFile(FileName));
 end;
@@ -297,6 +316,17 @@ begin
     DwmSetWindowAttribute(WizardForm.Handle, DWMWA_TEXT_COLOR, Color, 4);
     Color := $00F2C6CF;
     DwmSetWindowAttribute(WizardForm.Handle, DWMWA_BORDER_COLOR, Color, 4);
+  except
+  end;
+end;
+
+{ Przy „Dalej” okno jest przemalowywane w kilku krokach (ukrycie strony, pokazanie nowej, zmiana
+  tła, obrazki przycisków) i bez buforowania widać każdy z nich jako biały przeskok. Flaga
+  WS_EX_COMPOSITED każe Windows narysować całe okno z kontrolkami w pamięci i pokazać naraz. }
+procedure EnableDoubleBuffering();
+begin
+  try
+    SetWindowLong(WizardForm.Handle, GWL_EXSTYLE, GetWindowLong(WizardForm.Handle, GWL_EXSTYLE) or WS_EX_COMPOSITED);
   except
   end;
 end;
@@ -383,6 +413,7 @@ var
   Left: Integer;
 begin
   Result := TBitmapImage.Create(WizardForm);
+  Result.BackColor := clNone;
   Result.Parent := WizardForm;
   Result.Stretch := True;
   Result.Cursor := crHand;
@@ -470,12 +501,24 @@ begin
     ProgressFill.Width := Round(ProgressFillMax * ((Gauge.Position - Gauge.Min) * 1.0) / (Gauge.Max - Gauge.Min));
 end;
 
+{ Natywna etykieta z nazwą pliku ma białe tło i mruga przy każdej zmianie tekstu (a plików jest
+  kilkaset). Zostaje poza widokiem, a nazwę przepisujemy do własnej, przezroczystej etykiety —
+  najwyżej 10 razy na sekundę. }
+procedure SyncFileName();
+begin
+  if (FileNameText <> nil) and (FileNameText.Caption <> WizardForm.FilenameLabel.Caption) then
+    FileNameText.Caption := WizardForm.FilenameLabel.Caption;
+end;
+
 procedure SyncTimerProc(Arg1, Arg2, Arg3, Arg4: LongWord);
 begin
   try
     SyncButtons();
     if WizardForm.CurPageID = wpInstalling then
+    begin
       SyncProgressFill();
+      SyncFileName();
+    end;
   except
   end;
 end;
@@ -622,7 +665,14 @@ end;
 procedure BuildInstallingPage();
 begin
   PlaceAt(WizardForm.StatusLabel, 30, 86, 536, 18);
+  { Natywna etykieta zachowuje szerokość (Inno skraca do niej ścieżkę), tylko znika z widoku. }
   PlaceAt(WizardForm.FilenameLabel, 30, 106, 536, 18);
+  MoveOutOfView(WizardForm.FilenameLabel);
+  FileNameText := TNewStaticText.Create(WizardForm);
+  FileNameText.Parent := WizardForm.InstallingPage;
+  FileNameText.AutoSize := False;
+  FileNameText.Font.Color := $56403A;
+  PlaceAt(FileNameText, 30, 106, 536, 18);
   ProgressFill := LoadImage('bar-fill.png', WizardForm.InstallingPage);
   ProgressFill.Stretch := True;
   PlaceAt(ProgressFill, 32, 136, 532, 6);
@@ -730,6 +780,7 @@ begin
   ReadyBack := LoadBack('back-ready.png');
   CreateTutorialOption();
   BuildButtons();
+  EnableDoubleBuffering();
 end;
 
 procedure DeinitializeSetup();
@@ -738,39 +789,50 @@ begin
     KillTimer(0, SyncTimerId);
 end;
 
+{ Podmiana tła przemalowuje całe okno, więc robimy ją tylko wtedy, gdy obraz naprawdę się zmienia
+  (strony katalogu, zadań i przygotowania używają tego samego tła wewnętrznego). }
+procedure ShowBack(Back: TBitmapImage);
+begin
+  if Back = CurrentBack then
+    Exit;
+  WizardSetBackImage([Back.PngImage], True, True, 255);
+  CurrentBack := Back;
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpWelcome then
-    WizardSetBackImage([WelcomeBack.PngImage], True, True, 255)
+    ShowBack(WelcomeBack)
   else if CurPageID = wpFinished then
   begin
     LayoutFinishedPage();
-    WizardSetBackImage([FinishBack().PngImage], True, True, 255);
+    ShowBack(FinishBack());
   end
   else if CurPageID = wpSelectComponents then
   begin
     MoveOutOfView(WizardForm.ComponentsList);
     SyncComponentBoxes();
-    WizardSetBackImage([ComponentsBack.PngImage], True, True, 255);
+    ShowBack(ComponentsBack);
   end
   else if CurPageID = wpLicense then
   begin
     TintLicenseMemo();
-    WizardSetBackImage([LicenseBack.PngImage], True, True, 255);
+    ShowBack(LicenseBack);
   end
   else if CurPageID = wpInstalling then
   begin
     MoveOutOfView(WizardForm.ProgressGauge);
-    WizardSetBackImage([InstallingBack.PngImage], True, True, 255);
+    MoveOutOfView(WizardForm.FilenameLabel);
+    ShowBack(InstallingBack);
   end
   else if CurPageID = wpReady then
   begin
     MoveOutOfView(WizardForm.ReadyMemo);
     ReadyText.Caption := ReadyInfo;
-    WizardSetBackImage([ReadyBack.PngImage], True, True, 255);
+    ShowBack(ReadyBack);
   end
   else
-    WizardSetBackImage([InnerBack.PngImage], True, True, 255);
+    ShowBack(InnerBack);
 
   if (CurPageID = wpWelcome) or (CurPageID = wpFinished) then
     CenterSideLabels();

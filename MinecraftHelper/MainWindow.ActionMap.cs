@@ -92,6 +92,7 @@ public partial class MainWindow
             EnderchestIssue = enderchest.Validate(),
             Gold = ChkGoldDepositEnabled.IsChecked == true,
             GoldCommand = gold.Command,
+            GoldByCommand = gold.Mode == GoldDepositMode.Command,
             GoldIssue = gold.Validate(),
             Food = ChkInventoryCleanupEatAfterCleanup.IsChecked == true,
             Protection = ChkEmergencyDamageSoundEnabled.IsChecked == true,
@@ -174,14 +175,24 @@ public partial class MainWindow
                 Row("Czekaj na okno", enderchest.OpenDelayMs + " ms"),
                 Row("Przedmioty", Join(enderItems, "nie wybrano"))
             },
-            ["gold"] = new[]
-            {
-                Row("Komenda", gold.Command),
-                Row("Tytuł menu", gold.MenuTitle),
-                Row("Pole wpłaty", gold.TargetSlot.ToString(CultureInfo.InvariantCulture)),
-                Row("Co wpłaca", Join(new[] { gold.Blocks ? "bloki" : "", gold.Ingots ? "sztabki" : "" }.Where(item => item.Length > 0), "nic")),
-                Row("Także z paska", YesNo(gold.IncludeHotbar))
-            },
+            ["gold"] = gold.Mode == GoldDepositMode.Command
+                ? new[]
+                {
+                    Row("Sposób", "komenda i jedno kliknięcie"),
+                    Row("Komenda", gold.Command),
+                    Row("Tytuł menu", gold.MenuTitle),
+                    Row("Pole do kliknięcia", gold.TargetSlot.ToString(CultureInfo.InvariantCulture)),
+                    Row("Także z paska", YesNo(gold.IncludeHotbar))
+                }
+                : new[]
+                {
+                    Row("Sposób", "ręczne przenoszenie"),
+                    Row("Komenda", gold.Command),
+                    Row("Tytuł menu", gold.MenuTitle),
+                    Row("Pole wpłaty", gold.TargetSlot.ToString(CultureInfo.InvariantCulture)),
+                    Row("Co wpłaca", Join(new[] { gold.Blocks ? "bloki" : "", gold.Ingots ? "sztabki" : "" }.Where(item => item.Length > 0), "nic")),
+                    Row("Także z paska", YesNo(gold.IncludeHotbar))
+                },
             ["food"] = new[] { Row("Slot", "2"), Row("Czas", "4 s"), Row("Kiedy", "po każdym cyklu Auto EQ") },
             ["alarm"] = new[]
             {

@@ -28,6 +28,15 @@ namespace MinecraftHelper
         // Przy kolejnej wersji dopisz jej nowości na początku listy (kolejność = kolejność kroków).
         private static readonly MinerWhatsNewItem[] Items =
         {
+            new("3.0.4", "Dzwonek Komunikaty",
+                "Nowa wersja programu i krótkie wiadomości od autora pokazuje dzwonek w pasku bocznym. Ten przełącznik wyłącza tylko wiadomości od autora — informacja o nowej wersji zostaje.",
+                "TabSettings", new[] { "BorderAnnouncementsCard" }, "IcoBell"),
+            new("3.0.4", "Wpłata złota komendą",
+                "Wybierz sposób wpłaty: ręczne przenoszenie albo komenda wpłaty z Twojego serwera, po której program raz klika wskazane pole w menu.",
+                "TabGoldDeposit", new[] { "BorderGoldDepositSection" }, "IcoGold"),
+            new("3.0.4", "Enderchest w wersji beta",
+                "Funkcja jest w przygotowaniu i na razie nie działa — nie polegaj na niej podczas kopania.",
+                "TabEnderchest", new[] { "BorderEnderchestBetaNote" }, "IcoEnderchest"),
             new("3.0.3", "Discord ma własną zakładkę",
                 "Bot, powiadomienia i komendy są teraz tutaj, a nie w Ustawieniach. Ustawienia bota są wspólne dla wszystkich kont.",
                 "TabDiscord", new[] { "BorderDiscordBotCard" }, "IcoChat"),

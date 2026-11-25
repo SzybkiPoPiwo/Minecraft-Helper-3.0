@@ -30,8 +30,6 @@ internal sealed class PvpSettings
 {
     public string LastAcknowledgedVersion { get; set; } = string.Empty;
     public bool TutorialSeen { get; set; }
-    // Wersja, o ktorej okno aktualizacji ma nie przypominac (przycisk "Pomin te wersje").
-    public string SkippedUpdateVersion { get; set; } = string.Empty;
     public MacroButton AutoLeftButton { get; set; } = new();
     public MacroButton AutoRightButton { get; set; } = new();
     public bool AutoLeftComboMode { get; set; }

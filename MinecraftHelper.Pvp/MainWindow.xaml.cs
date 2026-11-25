@@ -234,6 +234,7 @@ public partial class MainWindow : Window
         UpdateModuleVisibility();
         RefreshBindyRows();
         InitializeGlassUi();
+        InitializeAnnouncements();
         InitializePvpExtras();
         _runtimeTimer.Start();
     }
@@ -255,44 +256,8 @@ public partial class MainWindow : Window
                 DispatcherPriority.ApplicationIdle);
         }
 
-        await CheckForUpdatesAsync();
-    }
-
-    private async System.Threading.Tasks.Task CheckForUpdatesAsync()
-    {
-        AppUpdateInfo? update = await UpdateCheckService.CheckForUpdateAsync(_currentAppVersion);
-        if (update == null || !IsVisible || _allowApplicationExit)
-            return;
-        // „Pomiń tę wersję”: przy starcie nie przypominamy, dopóki nie wyjdzie kolejna.
-        if (string.Equals(update.LatestVersion, _settings.SkippedUpdateVersion, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        ShowUpdateDialog(update);
-        if (IsVisible)
-            Activate();
-    }
-
-    // Wspólne dla sprawdzania przy starcie i przycisku „Sprawdź aktualizacje”.
-    private void ShowUpdateDialog(AppUpdateInfo update)
-    {
-        var dialog = new UpdateAvailableWindow(update)
-        {
-            Owner = this
-        };
-        dialog.ShowDialog();
-        if (!dialog.SkipRequested)
-            return;
-
-        try
-        {
-            _settings.SkippedUpdateVersion = update.LatestVersion;
-            _settingsService.Save(_settings);
-            UpdateStatusBar($"Pominięto wersję {update.LatestVersion} — o kolejnej program znów przypomni.", "Orange");
-        }
-        catch (Exception exception)
-        {
-            UpdateStatusBar($"Nie zapisano pominiętej wersji: {exception.Message}", "Red");
-        }
+        // Nowa wersja i komunikaty od autora pokazuje dzwonek w nagłówku — nic nie blokuje okna.
+        StartAnnouncements();
     }
 
     private void ShowStartupNotice()
@@ -414,7 +379,6 @@ public partial class MainWindow : Window
     private void NormalizeSettings()
     {
         _settings.LastAcknowledgedVersion ??= string.Empty;
-        _settings.SkippedUpdateVersion ??= string.Empty;
         _settings.AutoLeftButton ??= new MacroButton();
         _settings.AutoRightButton ??= new MacroButton();
         _settings.BindyEntries ??= new List<BindyEntry>();
@@ -728,6 +692,18 @@ public partial class MainWindow : Window
                 ? "Nie znaleziono gry — uruchom Minecrafta i odśwież listę."
                 : $"Znalezione procesy Minecrafta: {found}.",
             found == 0 ? "Orange" : "Green");
+    }
+
+    // Lista jest świeża przy każdym otwarciu. Wcześniej wypełniała się tylko przy starcie programu i po
+    // „Odśwież”, więc gra uruchomiona później (albo druga obok pierwszej) nie pojawiała się na liście,
+    // dopóki ktoś nie kliknął odświeżania. Zaznaczenie zostaje przy tym samym procesie; cel zapisany
+    // w programie zmienia dopiero „Zapisz”.
+    private void CbTargetProcess_DropDownOpened(object? sender, EventArgs e)
+    {
+        List<GameWindowInfo> candidates = GameWindowFinder.FindAll();
+        int shownProcessId = (CbTargetProcess.SelectedItem as GameWindowInfo)?.ProcessId ?? 0;
+        CbTargetProcess.ItemsSource = candidates;
+        CbTargetProcess.SelectedItem = candidates.FirstOrDefault(candidate => candidate.ProcessId == shownProcessId);
     }
 
     private void BtnSaveTarget_Click(object sender, RoutedEventArgs e)

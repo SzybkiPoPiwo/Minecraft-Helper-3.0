@@ -11,10 +11,10 @@
     <Product>Minecraft Helper Kopacz</Product>
     <DefineConstants>$(DefineConstants);MINER_EDITION</DefineConstants>
     <ApplicationIcon>Assets\miner.ico</ApplicationIcon>
-    <Version>3.0.3</Version>
-    <AssemblyVersion>3.0.3.0</AssemblyVersion>
-    <FileVersion>3.0.3.0</FileVersion>
-    <InformationalVersion>3.0.3-miner</InformationalVersion>
+    <Version>3.0.4</Version>
+    <AssemblyVersion>3.0.4.0</AssemblyVersion>
+    <FileVersion>3.0.4.0</FileVersion>
+    <InformationalVersion>3.0.4-miner</InformationalVersion>
     <Copyright>Copyright © 2026 SzybkiPoPiwo — GNU GPL 3.0</Copyright>
     <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**;bin_codex\**;obj_codex\**;bin_tmp\**;obj_codex_verify\**</DefaultItemExcludes>
   </PropertyGroup>

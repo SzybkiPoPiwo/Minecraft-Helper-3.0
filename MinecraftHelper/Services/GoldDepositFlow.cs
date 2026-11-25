@@ -6,8 +6,23 @@ using Drawing = System.Drawing;
 
 namespace MinecraftHelper.Services;
 
+/// <summary>Manual: program sam przenosi stosy złota do pola wpłaty. Command: wpisuje komendę wpłaty i raz klika wskazane pole.</summary>
+internal enum GoldDepositMode { Manual, Command }
+
+internal static class GoldDepositModes
+{
+    public const string ManualId = "manual";
+    public const string CommandId = "command";
+
+    // Nieznana wartość z ustawień to ręczne przenoszenie: tak działały pliki sprzed wyboru trybu.
+    public static GoldDepositMode Parse(string? id) =>
+        string.Equals(id?.Trim(), CommandId, StringComparison.OrdinalIgnoreCase) ? GoldDepositMode.Command : GoldDepositMode.Manual;
+
+    public static string ToId(GoldDepositMode mode) => mode == GoldDepositMode.Command ? CommandId : ManualId;
+}
+
 internal sealed record GoldDepositOptions(string Command, string MenuTitle, int Rows, int TargetSlot,
-    int OpenDelayMs, bool Ingots, bool Blocks, bool IncludeHotbar, int Columns = 9)
+    int OpenDelayMs, bool Ingots, bool Blocks, bool IncludeHotbar, int Columns = 9, GoldDepositMode Mode = GoldDepositMode.Manual)
 {
     public bool IsSelected(string id) => (Ingots && id == "gold_ingot") || (Blocks && id == "gold_block");
     public static bool IsGold(string id) => id is "gold_ingot" or "gold_block";
@@ -17,7 +32,7 @@ internal sealed record GoldDepositOptions(string Command, string MenuTitle, int 
         : string.IsNullOrWhiteSpace(MenuTitle) || MenuTitle.Count(char.IsLetterOrDigit) < 2 ? "Wpisz oczekiwany tytuł menu (np. Bazar)."
         : Rows is < 1 or > 6 || Columns is < 1 or > 9 || TargetSlot < 1 || TargetSlot > Rows * Columns ? "Niepoprawny układ menu lub pole wpłaty."
         : OpenDelayMs is < 500 or > 30000 ? "Oczekiwanie na menu musi wynosić 500–30000 ms."
-        : !Ingots && !Blocks ? "Wybierz sztabki lub bloki złota." : string.Empty;
+        : Mode == GoldDepositMode.Manual && !Ingots && !Blocks ? "Wybierz sztabki lub bloki złota." : string.Empty;
 
     public string ValidateMenuTitle(string title)
     {
@@ -30,6 +45,8 @@ internal sealed record GoldDepositOptions(string Command, string MenuTitle, int 
     public string ValidateMenuIdentity(string title, string? bankItemId)
     {
         string titleError = ValidateMenuTitle(title);
+        // Tryb komendy klika pole, na którym nie musi być ikony złota (np. przycisk potwierdzenia), więc kontroluje tylko tytuł menu.
+        if (Mode == GoldDepositMode.Command) return titleError;
         if (titleError.Length > 0) return titleError + " Ikony wpłaty jeszcze nie sprawdzono.";
         if (bankItemId == null || !IsGold(bankItemId))
             return $"Tytuł menu potwierdzony. W polu {TargetSlot} (rząd {(TargetSlot - 1) / Columns + 1}, kolumna {(TargetSlot - 1) % Columns + 1}) nie rozpoznano ikony złota z TXT. Odczyt: {bankItemId ?? "brak znacznika"}.";
@@ -94,18 +111,23 @@ internal sealed class GoldDepositManualTestSession
 // Pure state machine: no Windows calls, screenshots, sleeps or user settings.
 internal sealed class GoldDepositFlow
 {
-    private enum Phase { CloseInitial, OpenChat, Type, Submit, Inspect, Picked, Deposited, Returned, Closed, Done, Failed }
+    // QuickDeposited: tryb komendy — kliknięto pole menu i czekamy, aż serwer odbierze złoto.
+    private enum Phase { CloseInitial, OpenChat, Type, Submit, Inspect, Picked, Deposited, QuickDeposited, Returned, Closed, Done, Failed }
+    private const int QuickClickWaitMs = 600;
+    private const int QuickMaximumObservations = 4;
     private Phase _phase;
     private readonly DateTime _started;
     private DetectedInventoryItem _source;
     private int _beforeCount;
+    private int _beforeStacks;
+    private int _remainingCount;
     private int _observations;
     public GoldDepositOptions Options { get; }
     public DateTime NextAt { get; private set; }
     public int ConfirmedStacks { get; private set; }
     public int ConfirmedItems { get; private set; }
     public string Message { get; private set; } = "Przygotowanie wpłaty złota";
-    public bool NeedsScreen => _phase is Phase.Inspect or Phase.Picked or Phase.Deposited or Phase.Returned or Phase.Closed;
+    public bool NeedsScreen => _phase is Phase.Inspect or Phase.Picked or Phase.Deposited or Phase.QuickDeposited or Phase.Returned or Phase.Closed;
     public bool Finished => _phase is Phase.Done or Phase.Failed;
     public bool AwaitsTyping => _phase == Phase.Type;
     public bool HasExpired(DateTime now) => now - _started > TimeSpan.FromMinutes(3);
@@ -135,8 +157,11 @@ internal sealed class GoldDepositFlow
                 if (screen!.GuiOpen) return WaitOrFail(now, "Menu nie zostało zamknięte.");
                 _phase = Phase.Done;
                 Message = $"Wpłata zakończona: potwierdzono usunięcie {ConfirmedItems} szt. z {ConfirmedStacks} stosów złota z EQ.";
+                if (_remainingCount > 0) Message += $" W EQ zostało jeszcze {_remainingCount} szt. złota.";
                 return new(GoldDepositAction.Complete);
         }
+        // Po kliknięciu serwer może zamknąć menu, więc zamknięte GUI nie jest tu jeszcze błędem.
+        if (_phase == Phase.QuickDeposited) return VerifyQuick(now, screen!);
         if (!screen!.MenuValid) return _phase == Phase.Inspect
             ? WaitOrFail(now, "Nie potwierdzono menu wpłaty: " + screen.Error)
             : Fail("Menu zmieniło się podczas przenoszenia. Sprawdź przedmiot na kursorze. " + screen.Error);
@@ -146,7 +171,10 @@ internal sealed class GoldDepositFlow
         switch (_phase)
         {
             case Phase.Inspect:
-                if (!screen.CursorEmpty) return Fail("Kursor nie jest pusty. Nie rozpoczęto kolejnego przenoszenia.");
+                if (!screen.CursorEmpty) return Fail(Options.Mode == GoldDepositMode.Command
+                    ? "Kursor nie jest pusty. Nie kliknięto pola wpłaty."
+                    : "Kursor nie jest pusty. Nie rozpoczęto kolejnego przenoszenia.");
+                if (Options.Mode == GoldDepositMode.Command) return InspectQuick(now, screen);
                 DetectedInventoryItem[] gold = screen.Items.Where(i => Options.IsSelected(i.ItemId))
                     .OrderBy(i => i.ItemId == "gold_block" ? 0 : 1).ThenBy(i => i.Slot).ToArray();
                 if (gold.Length == 0) return Advance(Phase.Closed, GoldDepositAction.CloseMenu, now, 250, "Zamykanie menu wpłaty");
@@ -186,9 +214,47 @@ internal sealed class GoldDepositFlow
 
     public void ClickExecuted(DateTime now)
     {
-        int waitMs = _phase == Phase.Deposited ? 350 : 250;
-        if (_phase is Phase.Picked or Phase.Deposited or Phase.Returned)
+        int waitMs = _phase == Phase.Deposited ? 350 : _phase == Phase.QuickDeposited ? QuickClickWaitMs : 250;
+        if (_phase is Phase.Picked or Phase.Deposited or Phase.QuickDeposited or Phase.Returned)
             NextAt = now.AddMilliseconds(waitMs);
+    }
+
+    // Tryb komendy: komenda już poszła, menu jest potwierdzone, więc zostaje jedno kliknięcie wskazanego pola.
+    private GoldDepositStep InspectQuick(DateTime now, GoldDepositObservation screen)
+    {
+        DetectedInventoryItem[] gold = screen.Items.Where(i => Options.IsSelected(i.ItemId)).ToArray();
+        if (gold.Length == 0) return Advance(Phase.Closed, GoldDepositAction.CloseMenu, now, 250, "Brak złota do wpłaty — zamykanie menu");
+        _beforeCount = gold.Sum(i => i.Quantity);
+        _beforeStacks = gold.Length;
+        // Ta sama akcja co przy ręcznym wpłacaniu: klik w pole menu. Zachowuje kontrolę okna, myszy i tytułu przed kliknięciem.
+        return Advance(Phase.QuickDeposited, GoldDepositAction.Deposit, now, 250, $"Klikanie pola {Options.TargetSlot} w menu wpłaty");
+    }
+
+    private GoldDepositStep VerifyQuick(DateTime now, GoldDepositObservation screen)
+    {
+        if (!screen.GuiOpen)
+        {
+            // Menu zamknęło się po kliknięciu: ekwipunku nie widać, więc ubytku złota nie da się odczytać.
+            _phase = Phase.Done;
+            Message = "Wpłata komendą: kliknięto pole i menu zamknęło się. Ubytku złota nie potwierdzono odczytem EQ.";
+            return new(GoldDepositAction.Complete);
+        }
+        if (!screen.MenuValid) return Fail("Po kliknięciu otworzyło się inne menu albo nie odczytano ramki. Sprawdź grę. " + screen.Error);
+        if (!screen.CursorEmpty) return Fail("Po kliknięciu na kursorze został przedmiot. Sprawdź GUI.");
+
+        DetectedInventoryItem[] gold = screen.Items.Where(i => Options.IsSelected(i.ItemId)).ToArray();
+        int remaining = gold.Sum(i => i.Quantity);
+        if (remaining < _beforeCount)
+        {
+            ConfirmedItems = _beforeCount - remaining;
+            ConfirmedStacks = Math.Max(0, _beforeStacks - gold.Length);
+            _remainingCount = remaining;
+            return Advance(Phase.Closed, GoldDepositAction.CloseMenu, now, 250, "Zamykanie menu wpłaty");
+        }
+        if (++_observations >= QuickMaximumObservations)
+            return Fail("Serwer nie wpłacił złota: po kliknięciu w EQ jest tyle samo złota. Sprawdź komendę, tytuł menu i pole.");
+        NextAt = now.AddMilliseconds(300);
+        return default;
     }
 
     private GoldDepositStep Advance(Phase phase, GoldDepositAction action, DateTime now, int delay, string message, int slot = -1)

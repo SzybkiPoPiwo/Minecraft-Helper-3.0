@@ -179,24 +179,40 @@ public partial class MainWindow
 
     private void BtnWindowChip_Click(object sender, RoutedEventArgs e) => MainTabs.SelectedItem = TabSettings;
 
+    // Ręczne sprawdzenie: wynik trafia do dzwonka w nagłówku (nowa wersja jest tam komunikatem), a tu tylko krótka informacja.
     private async void BtnCheckUpdates_Click(object sender, RoutedEventArgs e)
     {
+        if (_announcements == null)
+            return;
+
         UpdateStatusBar("Sprawdzanie aktualizacji…", "Green");
-        AppUpdateInfo? update = await UpdateCheckService.CheckForUpdateAsync(_currentAppVersion);
-        if (update == null)
+        await _announcements.RefreshAsync();
+        if (!_announcements.LastUpdateCheckSucceeded)
+            UpdateStatusBar("Nie udało się sprawdzić aktualizacji. Sprawdź połączenie z internetem i spróbuj później.", "Red");
+        else if (_announcements.AvailableVersion is string latest)
+            UpdateStatusBar($"Dostępna wersja {latest} — szczegóły w dzwonku „Komunikaty” w nagłówku.", "Orange");
+        else
+            UpdateStatusBar($"Masz aktualną wersję {_currentAppVersion}.", "Green");
+    }
+
+    // Plakietka wersji w Ustawieniach: aktualna albo dostępna nowa. Odświeżana po każdym sprawdzeniu (start, co kilka godzin, „Sprawdź”).
+    private void ApplyVersionPill(bool checkSucceeded, string? availableVersion)
+    {
+        if (!checkSucceeded)
+            return;
+
+        if (availableVersion == null)
         {
             TxtVersionPill.Text = $"{_currentAppVersion} aktualna";
             TxtVersionPill.Foreground = GlassPalette.Ok;
             PillVersion.Background = GlassPalette.OkSoft;
-            UpdateStatusBar($"Masz aktualną wersję {_currentAppVersion}.", "Green");
-            return;
         }
-
-        TxtVersionPill.Text = $"dostępna {update.LatestVersion}";
-        TxtVersionPill.Foreground = GlassPalette.Warn;
-        PillVersion.Background = GlassPalette.WarnSoft;
-
-        ShowUpdateDialog(update);
+        else
+        {
+            TxtVersionPill.Text = $"dostępna {availableVersion}";
+            TxtVersionPill.Foreground = GlassPalette.Warn;
+            PillVersion.Background = GlassPalette.WarnSoft;
+        }
     }
 
     private void RefreshGlassHotbar()

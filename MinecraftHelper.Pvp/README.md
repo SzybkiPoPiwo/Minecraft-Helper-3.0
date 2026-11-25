@@ -34,7 +34,7 @@ Zakładka `Jabłka` uruchamia niezależną pętlę jednym bindem: wybiera nożyc
 
 Jeżeli istnieją ustawienia wcześniejszego prototypu z brancha `projekt-2-apki`, program wczyta je ze starej lokalizacji i przy najbliższym zapisie zapisze konfigurację także w nowym pliku.
 
-Przy pierwszym uruchomieniu oraz po zmianie wersji Auto Clicker pokazuje krótkie informacje o konfiguracji i listę nowości. Przy każdym starcie sprawdza też najnowsze publiczne wydanie na GitHubie; znalezioną aktualizację tylko zgłasza i podaje oficjalny link, bez automatycznego pobierania lub instalowania pliku.
+Przy pierwszym uruchomieniu oraz po zmianie wersji Auto Clicker pokazuje krótkie informacje o konfiguracji i listę nowości. Przy starcie i co kilka godzin sprawdza też najnowsze publiczne wydanie na GitHubie; znalezioną aktualizację tylko zgłasza w dzwonku „Komunikaty” w nagłówku okna (z listą zmian i oficjalnym linkiem), bez automatycznego pobierania lub instalowania pliku. Ten sam dzwonek pokazuje krótkie wiadomości od autora — wyłączysz je w Ustawieniach → Aktualizacje, a informacja o nowej wersji zostaje zawsze. Format i zasady: [docs/ANNOUNCEMENTS.md](../docs/ANNOUNCEMENTS.md).
 
 ## Uruchomienie ze źródeł
 

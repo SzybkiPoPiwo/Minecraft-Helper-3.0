@@ -71,3 +71,26 @@ utracie fokusu nie wykonuje dalszych kliknięć i nie zamyka niepewnego menu;
 sprawdź ręcznie kursor. Użytkownik potwierdził poprawne wykonanie ręcznego testu
 całej wpłaty na serwerze. Pełny cykl ze skanem i wznowieniem kopania należy
 sprawdzić osobno; testy automatyczne nie uruchamiają gry.
+
+## Tryb „Komenda”
+
+W panelu Wpłata złota wybierz **Sposób wpłaty → Komenda**. Zamiast przenosić stosy program wpisuje
+komendę wpłaty z serwera użytkownika (nie ma wartości domyślnej), potwierdza tytuł menu, które się po niej otwiera,
+i raz klika wskazane pole. Tryb ma własną komendę, tytuł, siatkę i pole; ustawienia trybu
+ręcznego zostają nietknięte i wracają po przełączeniu.
+
+1. Wpisz komendę, tytuł menu otwieranego po niej i wybierz pole do kliknięcia. Komenda i tytuł są
+   domyślnie puste, więc bez nich tryb nie ruszy (Kopacz odmówi startu i pokaże, czego brakuje).
+2. Wpisz tę komendę ręcznie w grze, odsuń kursor poza GUI i użyj testu odczytu menu. Sprawdza
+   tytuł i siatkę, niczego nie klika.
+3. Dopiero potem `Test wpłaty złota` z małą ilością złota: komenda → menu → jedno kliknięcie →
+   odczyt EQ.
+
+Kontrola obejmuje tytuł menu, nie ikonę w klikanym polu (tryb ręczny sprawdza oba). Rodzaje złota
+nie zawężają tego trybu, bo wpłaca serwer; zostaje opcja „Także z hotbara”, czyli które sloty EQ
+program sprawdza. Po kliknięciu ubytek złota w EQ potwierdza wpłatę i program zamyka menu Esc.
+Gdy serwer sam zamknie menu, program kończy bez potwierdzenia ubytku. Brak zmiany po kilku
+odczytach, inne menu albo przedmiot na kursorze zatrzymują kopanie.
+
+Tryb komendy sprawdzają testy automatyczne (automat, ustawienia, panel); na serwerze nie był
+jeszcze próbowany.

@@ -35,8 +35,6 @@ namespace MinecraftHelper.Models
     public class AppSettings
     {
         public string LastAcknowledgedVersion { get; set; } = "";
-        // Wersja, o której okno aktualizacji ma nie przypominać („Pomiń tę wersję”).
-        public string SkippedUpdateVersion { get; set; } = "";
         // Samouczek w trybie ćwiczeń był już pokazany (przejście albo pominięcie) — nie wraca sam.
         public bool TutorialSeen { get; set; }
 
@@ -80,6 +78,16 @@ namespace MinecraftHelper.Models
         public bool GoldDepositIngots { get; set; } = true;
         public bool GoldDepositBlocks { get; set; } = true;
         public bool GoldDepositIncludeHotbar { get; set; } = true;
+        // Sposób wpłaty: "manual" (program przenosi stosy do pola wpłaty) albo "command" (komenda wpłaty i jedno kliknięcie).
+        // Stare pliki nie mają tego klucza, więc zostają przy ręcznym przenoszeniu.
+        public string GoldDepositMode { get; set; } = "manual";
+        // Menu trybu „komenda” ma własny tytuł, siatkę i pole: zwykle to inne okno niż to, do którego przenosi tryb ręczny.
+        // Komenda i tytuł są domyślnie puste — każdy serwer ma inne, więc użytkownik wpisuje własne, a do tego czasu tryb nie ruszy.
+        public string GoldDepositQuickCommand { get; set; } = "";
+        public string GoldDepositQuickMenuTitle { get; set; } = "";
+        public int GoldDepositQuickRows { get; set; } = 3;
+        public int GoldDepositQuickColumns { get; set; } = 9;
+        public int GoldDepositQuickTargetSlot { get; set; } = 1;
         public bool EnderchestEnabled { get; set; }
         public string EnderchestCommand { get; set; } = "/ec";
         public string EnderchestMenuTitle { get; set; } = "Ender Chest";

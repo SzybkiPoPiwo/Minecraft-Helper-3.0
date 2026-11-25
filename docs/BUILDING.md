@@ -126,7 +126,7 @@ Publikacja Kopacza `win-x64` pomija nieużywane biblioteki OCR `x86/`. Folder `x
 Zainstaluj Inno Setup 6, zamknij działające kopie Minecraft Helper i uruchom:
 
 ```powershell
-.\scripts\build-installer.ps1 -Version 3.0.3 -Rid win-x64 -SelfContained $true -Clean
+.\scripts\build-installer.ps1 -Version 3.0.4 -Rid win-x64 -SelfContained $true -Clean
 ```
 
 Jeżeli PowerShell blokuje lokalny skrypt, możesz zezwolić na jego wykonanie tylko w bieżącym oknie terminala:
@@ -138,7 +138,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 Następnie ponownie uruchom skrypt budowania. Wynik znajdzie się w:
 
 ```text
-artifacts\installer\MinecraftHelper-Setup-3.0.3.exe
+artifacts\installer\MinecraftHelper-Setup-3.0.4.exe
 ```
 
 Jeden instalator zawiera dwa niezależne składniki. Użytkownik może wybrać Auto Clicker, Kopacza albo oba programy.
@@ -150,7 +150,7 @@ Parametr `-Clean` usuwa wyłącznie wcześniejsze wyniki z `artifacts/publish` i
 Oblicz sumę SHA-256 własnego pliku:
 
 ```powershell
-Get-FileHash .\artifacts\installer\MinecraftHelper-Setup-3.0.3.exe -Algorithm SHA256
+Get-FileHash .\artifacts\installer\MinecraftHelper-Setup-3.0.4.exe -Algorithm SHA256
 ```
 
 Przed udostępnieniem programu warto również:

@@ -21,10 +21,15 @@ namespace MinecraftHelper.Services
         string LatestVersion,
         string ReleaseName,
         Uri DownloadUri,
-        bool IsDirectInstaller,
         DateTimeOffset? PublishedAt = null,
         IReadOnlyList<UpdateReleaseNotes>? Notes = null,
         Uri? ReleasePageUri = null);
+
+    /// <summary>
+    /// Wynik sprawdzenia GitHuba. Succeeded=false to błąd sieci albo odpowiedzi — wtedy nie wiemy,
+    /// czy aktualizacja jest, i program zostawia to, co już wie. Succeeded=true, Update=null: wersja aktualna.
+    /// </summary>
+    internal readonly record struct UpdateCheckResult(bool Succeeded, AppUpdateInfo? Update);
 
     internal static class UpdateCheckService
     {
@@ -47,7 +52,7 @@ namespace MinecraftHelper.Services
             Timeout = TimeSpan.FromSeconds(8)
         };
 
-        public static async Task<AppUpdateInfo?> CheckForUpdateAsync(
+        public static async Task<UpdateCheckResult> CheckAsync(
             string currentVersion,
             CancellationToken cancellationToken = default)
         {
@@ -63,20 +68,20 @@ namespace MinecraftHelper.Services
                     cancellationToken);
 
                 if (!response.IsSuccessStatusCode)
-                    return null;
+                    return new UpdateCheckResult(false, null);
 
                 await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
                 using JsonDocument document = await JsonDocument.ParseAsync(
                     responseStream,
                     cancellationToken: cancellationToken);
 
-                return BuildUpdateInfo(document.RootElement, currentVersion, IsMinerEdition);
+                return new UpdateCheckResult(true, BuildUpdateInfo(document.RootElement, currentVersion, IsMinerEdition));
             }
             catch
             {
                 // Sprawdzenie jest tylko dodatkiem: żaden błąd sieci ani odpowiedzi
                 // nie może blokować uruchomienia aplikacji.
-                return null;
+                return new UpdateCheckResult(false, null);
             }
         }
 
@@ -130,7 +135,6 @@ namespace MinecraftHelper.Services
                 latestVersion,
                 releaseName,
                 installerUri ?? releaseUri!,
-                IsDirectInstaller: installerUri != null,
                 publishedAt,
                 notes,
                 releaseUri);

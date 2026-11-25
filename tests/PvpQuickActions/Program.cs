@@ -107,6 +107,15 @@ internal static class Program
         Check(File.ReadAllText(Path.Combine(pvp, "MainWindow.xaml.cs")).Contains("!(tutorialShown && _isFirstRun)", StringComparison.Ordinal),
             "after an update the release notes still follow the tutorial");
 
+        // Lista procesów Minecrafta odświeża się przy każdym otwarciu, a nie tylko przy starcie i po „Odśwież”.
+        string xaml = File.ReadAllText(Path.Combine(pvp, "MainWindow.xaml"));
+        int dropDown = window.IndexOf("private void CbTargetProcess_DropDownOpened", StringComparison.Ordinal);
+        Check(xaml.Contains("DropDownOpened=\"CbTargetProcess_DropDownOpened\"", StringComparison.Ordinal)
+                && dropDown >= 0
+                && window.IndexOf("GameWindowFinder.FindAll()", dropDown, StringComparison.Ordinal) is int find
+                && find > dropDown && find < dropDown + 400,
+            "opening the game list re-scans the running games");
+
         // Kapitulacja musi działać przy GUI i obejmować każde makro.
         string panic = File.ReadAllText(Path.Combine(pvp, "MainWindow.Panic.cs"));
         int panicRead = window.IndexOf("IsBindPressed(TxtPanicBind.Text, ref _panicBindWasDown)", StringComparison.Ordinal);

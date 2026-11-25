@@ -24,6 +24,8 @@ namespace MinecraftHelper
         public string EnderchestIssue { get; init; } = "";
         public bool Gold { get; init; }
         public string GoldCommand { get; init; } = "";
+        /// <summary>Wpłata komendą (komenda i jedno kliknięcie) zamiast ręcznego przenoszenia stosów.</summary>
+        public bool GoldByCommand { get; init; }
         public string GoldIssue { get; init; } = "";
         public bool Food { get; init; }
         public bool Protection { get; init; }
@@ -130,7 +132,9 @@ namespace MinecraftHelper
                     "Enderchest", null, "TabEnderchest", new[] { "BorderEnderchestSection" }, false, s.AutoEq && s.Enderchest,
                     !(s.AutoEq && s.Enderchest) ? "" : s.EnderchestFull ? "Enderchest jest pełny. Następna próba przy kolejnym starcie kopania." : s.EnderchestIssue),
                 new ActionMapTile("gold", "Wpłata złota", s.AutoEq && s.Gold ? s.GoldCommand : Off,
-                    "Otwiera menu komendą, sprawdza jego tytuł i przenosi pełne stacki złota do pola wpłaty.",
+                    s.GoldByCommand
+                        ? "Wpisuje komendę wpłaty, sprawdza tytuł menu i raz klika wskazane pole. Potem sprawdza, czy złota ubyło z EQ."
+                        : "Otwiera menu komendą, sprawdza jego tytuł i przenosi pełne stacki złota do pola wpłaty.",
                     "Wpłata złota", null, "TabGoldDeposit", new[] { "BorderGoldDepositSection" }, false, s.AutoEq && s.Gold,
                     s.AutoEq && s.Gold ? s.GoldIssue : ""),
                 new ActionMapTile("food", "Jedzenie", s.AutoEq && s.Food ? "slot 2, 4 s" : Off,

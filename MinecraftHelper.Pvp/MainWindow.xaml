@@ -164,12 +164,16 @@
                 <TextBlock Name="TxtAppVersion" Text="Minecraft Helper" FontSize="11" Foreground="{DynamicResource GlassInk2Brush}"/>
             </StackPanel>
             <Button Grid.Column="1" Content="Samouczek" Style="{StaticResource GlassChipButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0" Click="BtnTabTutorial_Click" ToolTip="Samouczek tej zakładki w trybie ćwiczeń — pokaże po kolei jej sekcje." AutomationProperties.Name="Samouczek tej zakładki"/>
-            <Button Grid.Column="2" Style="{StaticResource GlassChipButton}" Click="BtnWindowChip_Click" ToolTip="Wybór okna Minecrafta">
-                <StackPanel Orientation="Horizontal">
-                    <Ellipse Name="FocusDot" Width="7" Height="7" Fill="{DynamicResource GlassBadBrush}" Margin="0,0,7,0" VerticalAlignment="Center"/>
-                    <TextBlock Name="TxtFocus" Text="Minecraft: brak" VerticalAlignment="Center"/>
-                </StackPanel>
-            </Button>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Komunikaty od autora: dzwonek (sama ikona z licznikiem) pojawia się dopiero, gdy jest co pokazać (MainWindow.Announcements.cs) -->
+                <Border Name="HostAnnouncementBell" VerticalAlignment="Center"/>
+                <Button Style="{StaticResource GlassChipButton}" Click="BtnWindowChip_Click" ToolTip="Wybór okna Minecrafta">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Name="FocusDot" Width="7" Height="7" Fill="{DynamicResource GlassBadBrush}" Margin="0,0,7,0" VerticalAlignment="Center"/>
+                        <TextBlock Name="TxtFocus" Text="Minecraft: brak" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
         </Grid>
 
         <TabControl Name="MainTabs" Grid.Row="1">
@@ -1063,7 +1067,7 @@
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <ComboBox Name="CbTargetProcess" Tag="Nie znaleziono gry — uruchom Minecrafta i odśwież" DisplayMemberPath="DisplayName"/>
+                                    <ComboBox Name="CbTargetProcess" Tag="Nie znaleziono gry — uruchom Minecrafta i odśwież" DisplayMemberPath="DisplayName" DropDownOpened="CbTargetProcess_DropDownOpened"/>
                                     <Button Grid.Column="1" Style="{StaticResource GlassIconButton}" Margin="8,0,0,0" ToolTip="Odśwież listę gier" Click="BtnRefreshProcesses_Click">
                                         <Viewbox Width="16" Height="16"><Grid Width="24" Height="24"><Path Style="{StaticResource GlassIconPath}" StrokeThickness="2.2" Data="M20,11 A8,8 0 1 0 17.7,16.7 M20,5 V11 H14"/></Grid></Viewbox>
                                     </Button>
@@ -1191,8 +1195,12 @@
                                 <DockPanel>
                                     <Button DockPanel.Dock="Right" Content="Sprawdź" Margin="6,0,0,0" Click="BtnCheckUpdates_Click"/>
                                     <Button DockPanel.Dock="Right" Content="Co nowego" Style="{StaticResource GlassTextButton}" Margin="6,0,0,0" Click="BtnWhatsNew_Click"/>
-                                    <TextBlock Text="Sprawdza GitHub przy starcie. Tylko zgłasza — nic nie pobiera." Style="{StaticResource GlassSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    <TextBlock Text="Nową wersję pokazuje dzwonek „Komunikaty” w nagłówku (sprawdzanie przy starcie i co kilka godzin). Nic nie pobiera sam." Style="{StaticResource GlassSub}" VerticalAlignment="Center" TextWrapping="Wrap"/>
                                 </DockPanel>
+                                <CheckBox Name="ChkAnnouncementsEnabled" Margin="0,10,0,0" Checked="ChkAnnouncementsEnabled_Changed" Unchecked="ChkAnnouncementsEnabled_Changed" AutomationProperties.Name="Pokazuj komunikaty od autora"
+                                          ToolTip="Krótkie wiadomości od autora w dzwonku w nagłówku (zmiany na serwerze, ważne ostrzeżenia). Informacja o nowej wersji pojawia się tam zawsze, niezależnie od tego pola. Nic nie jest wysyłane poza numerem wersji. Ustawienie wspólne dla obu programów.">
+                                    <TextBlock Text="Pokazuj komunikaty od autora (dzwonek w nagłówku)" TextWrapping="Wrap"/>
+                                </CheckBox>
                                 <Border Style="{StaticResource GlassInset}" Margin="0,10,0,0" Padding="10,8">
                                     <TextBlock Name="TxtSettingsPath" FontFamily="{StaticResource GlassMonoFont}" FontSize="11" Foreground="{DynamicResource GlassInk2Brush}" TextWrapping="Wrap"/>
                                 </Border>

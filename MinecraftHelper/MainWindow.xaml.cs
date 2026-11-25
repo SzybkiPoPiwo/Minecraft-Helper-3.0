@@ -681,6 +681,7 @@ namespace MinecraftHelper
             _autoReconnectTimer.Start();
             _isMinecraftFocused = CheckGameFocus();
             InitializeGlassUi();
+            InitializeAnnouncements();
             if (!_workspaceWorker)
                 AttachTabTutorialButtons();
         }
@@ -715,40 +716,8 @@ namespace MinecraftHelper
                     DispatcherPriority.ApplicationIdle);
             }
 
-            await CheckForUpdatesAsync();
-        }
-
-        private async Task CheckForUpdatesAsync()
-        {
-            AppUpdateInfo? update = await UpdateCheckService.CheckForUpdateAsync(_currentAppVersion);
-            if (update == null || !IsVisible || _isExitRequested)
-                return;
-            // „Pomiń tę wersję”: przy starcie nie przypominamy, dopóki nie wyjdzie kolejna.
-            if (string.Equals(update.LatestVersion, _settings.SkippedUpdateVersion, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            var dialog = new UpdateAvailableWindow(update)
-            {
-                Owner = this
-            };
-            dialog.ShowDialog();
-
-            if (dialog.SkipRequested)
-            {
-                try
-                {
-                    _settings.SkippedUpdateVersion = update.LatestVersion;
-                    _settingsService.Save(_settings);
-                    UpdateStatusBar($"Pominięto wersję {update.LatestVersion} — o kolejnej program znów przypomni.", "Orange");
-                }
-                catch (Exception ex)
-                {
-                    UpdateStatusBar("Nie udało się zapisać pominiętej wersji: " + ex.Message, "Red");
-                }
-            }
-
-            if (IsVisible && !_isExitRequested)
-                Activate();
+            // Nowa wersja i komunikaty od autora pokazuje dzwonek w pasku bocznym — nic nie blokuje okna.
+            StartAnnouncements();
         }
 
         private void ShowStartupNotice()
@@ -1007,7 +976,6 @@ namespace MinecraftHelper
         {
             _settings ??= new AppSettings();
             _settings.LastAcknowledgedVersion ??= string.Empty;
-            _settings.SkippedUpdateVersion ??= string.Empty;
 
             _settings.Kopacz533Commands ??= new List<MinerCommand>();
             _settings.Kopacz633Commands ??= new List<MinerCommand>();

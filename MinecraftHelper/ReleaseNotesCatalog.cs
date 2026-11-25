@@ -15,6 +15,22 @@ namespace MinecraftHelper
         private static readonly AppReleaseNotes[] Releases =
         {
             new AppReleaseNotes(
+                "3.0.4",
+                "Dzwonek Komunikaty i wpłata złota komendą",
+                new[]
+                {
+                    "Oba programy: dzwonek „Komunikaty” pokazuje nową wersję z listą zmian i linkiem do pobrania oraz krótkie wiadomości od autora. Zastąpił okno aktualizacji — nic już nie blokuje programu, a „Pomiń tę wersję” nie jest potrzebne.",
+                    "Oba programy: nowy komunikat wyskakuje na 3 s w rogu ekranu, także gdy program jest w tle, ale nie przejmuje fokusu, więc nie wyrywa gry z pełnego ekranu.",
+                    "Oba programy: przełącznik „Komunikaty od autora” w Ustawieniach wyłącza tylko wiadomości od autora; informacja o nowej wersji zostaje zawsze.",
+                    "Oba programy: instalator bez białych błysków przy przechodzeniu między stronami i podczas kopiowania plików.",
+                    "Oba programy: samouczki pokazują nowy wygląd Ustawień.",
+                    "Kopacz: Wpłata złota ma dwa sposoby — „Ręczne przenoszenie” (jak dotąd) albo „Komenda”: program wpisuje komendę wpłaty z serwera i raz klika wskazane pole w menu. Każdy sposób pamięta własną komendę, tytuł i pole.",
+                    "Kopacz: Enderchest ma plakietkę BETA i ostrzeżenie — funkcja jest w przygotowaniu i na razie nie działa.",
+                    "Kopacz: mapa działania opisuje wybrany sposób wpłaty złota.",
+                    "Auto Clicker: lista procesów Minecrafta w Ustawieniach odświeża się przy każdym otwarciu — gra uruchomiona po Auto Clickerze pojawia się od razu, bez klikania „Odśwież”.",
+                    "Auto Clicker: przycisk „Sprawdź” w Ustawieniach pokazuje wynik w dzwonku."
+                }),
+            new AppReleaseNotes(
                 "3.0.3",
                 "Nowy wygląd, Kapitulacja i samouczek w obu programach",
                 new[]

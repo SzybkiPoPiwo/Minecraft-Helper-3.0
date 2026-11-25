@@ -98,7 +98,7 @@ internal static partial class Program
         MethodInfo build = assembly.GetType("MinecraftHelper.Services.UpdateCheckService")!.GetMethod("BuildUpdateInfo", Static)!;
         object info = build.Invoke(null, new object[] { releases.RootElement, "3.0.3", true })!;
         object? Prop(object target, string name) => target.GetType().GetProperty(name)!.GetValue(target);
-        Check((string)Prop(info, "LatestVersion")! == "3.0.5" && (bool)Prop(info, "IsDirectInstaller")!,
+        Check((string)Prop(info, "LatestVersion")! == "3.0.5" && ((Uri)Prop(info, "DownloadUri")!).AbsoluteUri.EndsWith("MinecraftHelper-Setup-v3.0.5.exe", StringComparison.Ordinal),
             "the update is the newest stable release (prereleases skipped) with its installer");
         string[] noteVersions = ((IEnumerable)Prop(info, "Notes")!).Cast<object>().Select(note => (string)Prop(note, "Version")!).ToArray();
         Check(noteVersions.SequenceEqual(new[] { "3.0.5", "3.0.4" }),
